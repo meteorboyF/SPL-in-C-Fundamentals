@@ -270,6 +270,11 @@ a.card:hover { border-color: var(--accent); text-decoration: none; transform: tr
 .sbar.neg { background: linear-gradient(90deg, #f08a9b, var(--red)); }
 .ttable tr.fut .sbar { opacity: .25; }
 
+.chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chip { font: .78rem var(--mono); border: 1px solid #d6d9ff; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 2px 9px; cursor: pointer; }
+.chip:hover { background: #e0e3ff; }
+.dect .pill { font-family: var(--sans); }
+
 /* quiz / practice mode */
 .viz.quiz .vrow .vv, .viz.quiz .viz-out pre, .viz.quiz .arr .cell b { filter: blur(5px); cursor: help; }
 .viz.quiz .reveal { filter: none !important; }
@@ -308,3 +313,6 @@ a.card:hover { border-color: var(--accent); text-decoration: none; transform: tr
   .prob-body { padding: 4px 12px 14px; }
   .viz-bar .stepc { margin-left: 0; }
 }
+
+/* no programming ligatures: beginners must see == and && exactly as typed (kept last so `font:` shorthands can't reset it) */
+body, code, pre, .viz-code, .console, .viz-out pre, .ttable, .pgrid, .lines td, .outq, .chip, .vrow, .prob-head .mini { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }

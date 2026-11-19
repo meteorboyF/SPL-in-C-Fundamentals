@@ -49,7 +49,7 @@
         <span class="stepc"></span>
       </div>
       <div class="viz-scrub"><input type="range" min="0" value="0" class="scrub" aria-label="step"></div>
-      <div class="viz-in"><span>Input <span class="muted small">(what you type for scanf)</span></span><input class="inp" spellcheck="false"><button class="btn sm rerun">Run with this input</button></div>
+      <div class="viz-in"><span>Input <span class="muted small">(what you type for scanf)</span></span><input class="inp" spellcheck="false"><button class="btn sm rerun">Run with this input</button><span class="chips"></span></div>
       <div class="quiz-tip">Practice mode: values and output are blurred. Before you press Step, say what the next value will be, then click a blurred value to check.</div>
       <div class="viz-errhost"></div>
       <div class="viz-main">
@@ -63,6 +63,7 @@
       </div>
       <div class="viz-tabs">
         ${def.watch ? '<button data-t="seq">Sequence</button>' : ''}
+        ${def.decisions ? '<button data-t="dec">Decisions</button>' : ''}
         ${isGrid ? '<button data-t="grid">Pattern grid</button><button data-t="rows">Row analysis</button>' : ''}
         <button data-t="trace">Trace table</button>
         <button data-t="none">Hide</button>
@@ -76,11 +77,16 @@
     const hasInput = /scanf|cin\s*>>/.test(pc.text);
     if (!hasInput) $('.viz-in').style.display = 'none';
     inp.value = (def.input || '').trim();
+    if (def.tests) {
+      const chips = $('.chips');
+      chips.innerHTML = '<span class="muted small">try:</span> ' + [def.input].concat(def.tests).map(t => '<button class="chip" data-v="' + esc(t) + '">' + esc(t) + '</button>').join('');
+      chips.querySelectorAll('.chip').forEach(c => c.onclick = () => { inp.value = c.dataset.v; load(); });
+    }
 
     codeEl.innerHTML = pc.lines.map((l, i) => '<div class="row" data-l="' + (i + 1) + '"><span class="n">' + (i + 1) + '</span><span class="c">' + (CN.highlight(l.code) || ' ') + '</span></div>').join('');
     const rows = [...codeEl.children];
 
-    let res, cur = 0, timer = null, tab = def.watch ? 'seq' : isGrid ? 'grid' : 'trace', quiz = false;
+    let res, cur = 0, timer = null, tab = def.decisions ? 'dec' : def.watch ? 'seq' : isGrid ? 'grid' : 'trace', quiz = false;
     let gridLines = [], traceCols = [];
 
     function load() {
@@ -139,6 +145,7 @@
       else if (tab === 'trace') syncTrace();
       else if (tab === 'rows') renderRows(s);
       else if (tab === 'seq') renderSeq();
+      else if (tab === 'dec') renderDec();
       el.querySelectorAll('.viz-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
       tabEl.style.display = tab === 'none' ? 'none' : '';
     }
@@ -233,6 +240,26 @@
       let best = null;
       tabEl.querySelectorAll('tr[data-i]').forEach(tr => { tr.addEventListener('click', () => { stop(); cur = +tr.dataset.i; render(); }); if (+tr.dataset.i <= cur) best = tr; });
       if (best) best.classList.add('cur');
+    }
+
+    // ---------- decisions: every if / switch check, in the order it happened
+    function renderDec() {
+      const isDecision = l => /^(}\s*)?(else\s+)?if\b|^switch\b/.test((pc.lines[l - 1] || { code: '' }).code.trim());
+      const rows = [];
+      res.steps.forEach((s, i) => { if ((s.kind === 'true' || s.kind === 'false') && isDecision(s.l)) rows.push(i); });
+      let h = '<p class="small muted" style="margin-top:0">Every decision the program made, in order. In an if / else-if ladder the checks stop at the <b>first true</b> one, and the conditions after it are never looked at. Change the input to send the program down another branch.</p>';
+      if (!rows.length) { tabEl.innerHTML = h + '<p class="muted">No if / switch checks in this program.</p>'; return; }
+      h += '<table class="ttable dect"><thead><tr><th>#</th><th>line</th><th>check</th><th>result</th></tr></thead><tbody>';
+      let best = -1;
+      rows.forEach((i, k) => {
+        const s = res.steps[i];
+        if (i <= cur) best = i;
+        const note = s.note.replace(/<(?!\/?(code|b)\b)[^>]*>/g, '').replace(/ → <b class="(yes|no)">(true|false)<\/b>.*$/, '').replace(/^(Check|switch on) /, '');
+        h += '<tr data-i="' + i + '" class="' + (i > cur ? 'fut' : '') + '"><td>' + (k + 1) + '</td><td>' + s.l + '</td><td class="note">' + note + '</td><td><span class="pill ' + (s.kind === 'true' ? 'easy">true' : 'hard">false') + '</span></td></tr>';
+      });
+      h += '</tbody></table>';
+      tabEl.innerHTML = h;
+      tabEl.querySelectorAll('tr[data-i]').forEach(tr => { tr.addEventListener('click', () => { stop(); cur = +tr.dataset.i; render(); }); if (+tr.dataset.i === best) tr.classList.add('cur'); });
     }
 
     // ---------- row analysis: count spaces & characters in each finished line

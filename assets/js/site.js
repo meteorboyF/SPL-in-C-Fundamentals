@@ -15,6 +15,7 @@
   const PAGES = [
     { href: 'index.html', label: 'Home' },
     { href: 'basics.html', label: '1 · C Basics' },
+    { href: 'conditionals.html', label: '1b · Conditionals' },
     { href: 'loops.html', label: '2 · Loops' },
     { href: 'sequences.html', label: '2b · Sequences' },
     { href: 'patterns.html', label: '3 · Patterns' },
@@ -230,6 +231,13 @@
     if (def.prompt) h += '<h4>Problem</h4><div>' + def.prompt + '</div>';
     if (def.src) h += '<div class="src">From your repo: <code>' + esc(def.src) + '</code> (now on the <code>legacy</code> branch)</div>';
     h += '<h4>Output' + (def.input ? ' for input <code>' + esc(def.input.trim().replace(/\s+/g, ' ')) + '</code>' : '') + '</h4><pre class="console">' + CN.consoleHTML(res) + '</pre>';
+    if (def.tests) {
+      const strip = r => { let o = r.out; for (const [a, b] of r.inputs.slice().reverse()) o = o.slice(0, a) + o.slice(b); return o.replace(/\n$/, ''); };
+      h += '<h4>Output for other inputs</h4><div class="table-scroll"><table class="tbl"><tr><th>input</th><th>output</th></tr>' + def.tests.map(t => {
+        const r = CTrace.run(pc.text, t);
+        return '<tr><td><code>' + esc(t) + '</code></td><td><pre class="console" style="margin:0;padding:4px 8px">' + esc(r.error ? 'error: ' + r.error.msg : strip(r)) + '</pre></td></tr>';
+      }).join('') + '</table></div>';
+    }
     if (def.idea) h += '<h4>How to think about it</h4><div class="callout idea"><div class="callout-title">Idea</div>' + def.idea + '</div>';
     if (def.formula) {
       const [head, ...rows] = def.formula;

@@ -565,4 +565,339 @@ int main() {
     return 0;
 }`,
     complexity: 'n(n−1)/2 pairs → O(n²).' });
+  // ------------------------------------------------------------ more loop practice (LeetCode)
+  P({ id: 'lp-common-factors', group: 'loops:E', title: 'Number of common factors', level: 'easy', input: '12 6', tests: ['25 30'], lc: { n: 2427, slug: 'number-of-common-factors' },
+    prompt: '<p>Count the integers that divide both a and b.</p>',
+    idea: '<p>A common factor can’t be bigger than the smaller number, so loop up to <code>min(a, b)</code> and count the numbers that divide both.</p>',
+    code: R`
+#include <stdio.h>
+
+int commonFactors(int a, int b) {
+    int lim = a < b ? a : b;          //> No common factor can be bigger than min(a, b).
+    int count = 0;
+    for (int x = 1; x <= lim; x++) {
+        if (a % x == 0 && b % x == 0) count++;   //> Divides both.
+    }
+    return count;
+}
+
+int main() {
+    int a, b;
+    scanf("%d %d", &a, &b);
+    printf("%d\n", commonFactors(a, b));
+    return 0;
+}` });
+
+  P({ id: 'lp-alt-digit', group: 'loops:E', title: 'Alternating digit sum', level: 'easy', input: '521', tests: ['111', '886996'], lc: { n: 2544, slug: 'alternating-digit-sum' },
+    prompt: '<p>The most significant digit gets +, the next −, and so on. 521 → 5 − 2 + 1 = 4.</p>',
+    idea: '<p>Peeling digits gives them from the <b>right</b>, but the signs start at the <b>left</b>. Sum with signs from the right (+, −, + …). If the number has an <b>even</b> number of digits, the leftmost digit got a − sign, so negate the whole answer.</p>',
+    code: R`
+#include <stdio.h>
+
+int alternateDigitSum(int n) {
+    int sum = 0, sign = 1, digits = 0;
+    while (n > 0) {
+        sum += sign * (n % 10);       //> Signs from the right: +, −, +, …
+        sign = -sign;
+        digits++;
+        n /= 10;
+    }
+    if (digits % 2 == 0) sum = -sum; //> With an even count, the leftmost digit got −, so flip everything.
+    return sum;
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("%d\n", alternateDigitSum(n));
+    return 0;
+}` });
+
+  P({ id: 'lp-harshad', group: 'loops:E', title: 'Harshad number', level: 'easy', input: '18', tests: ['23'], lc: { n: 3099, slug: 'harshad-number' },
+    prompt: '<p>x is a Harshad number if it is divisible by the sum of its digits. Return that sum, or −1.</p>',
+    idea: '<p>Digit sum on a <b>copy</b> (the loop destroys it), then one test against the original.</p>',
+    code: R`
+#include <stdio.h>
+
+int sumOfTheDigitsOfHarshadNumber(int x) {
+    int s = 0;
+    for (int t = x; t > 0; t /= 10) s += t % 10;  //> Digit sum of a copy.
+    if (x % s == 0) return s;
+    return -1;
+}
+
+int main() {
+    int x;
+    scanf("%d", &x);
+    printf("%d\n", sumOfTheDigitsOfHarshadNumber(x));
+    return 0;
+}` });
+
+  P({ id: 'lp-three-div', group: 'loops:E', title: 'Three divisors', level: 'easy', input: '4', tests: ['12', '49'], lc: { n: 1952, slug: 'three-divisors' },
+    prompt: '<p>Does n have exactly three positive divisors?</p>',
+    idea: '<p>Count divisors with the √n pair trick, then compare the count with 3. (Only squares of primes have exactly 3 divisors: 1, p, p².)</p>',
+    code: R`
+#include <stdio.h>
+#include <stdbool.h>
+
+bool isThree(int n) {
+    int count = 0;
+    for (int i = 1; i * i <= n; i++) {
+        if (n % i == 0) {
+            count++;                       //> i is a divisor …
+            if (i != n / i) count++;       //> … and so is its partner n / i.
+        }
+    }
+    return count == 3;
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf(isThree(n) ? "true\n" : "false\n");
+    return 0;
+}` });
+
+  P({ id: 'lp-self-div', group: 'loops:E', title: 'Self dividing numbers', level: 'easy', input: '1 22', tests: ['47 85'], lc: { n: 728, slug: 'self-dividing-numbers' },
+    prompt: '<p>Print all numbers in [left, right] that are divisible by every one of their digits (and contain no 0).</p>',
+    idea: '<p>Nested loops: the outer loop goes over the range, and the inner loop checks the digits of one number. A <b>flag</b> plus <code>break</code> stops the digit check at the first bad digit.</p>',
+    code: R`
+#include <stdio.h>
+
+int main() {
+    int left, right;
+    scanf("%d %d", &left, &right);
+    for (int x = left; x <= right; x++) {
+        int ok = 1;                           //> Assume x is good until a digit proves otherwise.
+        for (int t = x; t > 0; t /= 10) {
+            int d = t % 10;
+            if (d == 0 || x % d != 0) { ok = 0; break; } //> A zero digit or a digit that doesn’t divide → reject.
+        }
+        if (ok) printf("%d ", x);
+    }
+    printf("\n");
+    return 0;
+}` });
+
+  P({ id: 'lp-nozero', group: 'loops:E', title: 'Convert integer to the sum of two no-zero integers', level: 'easy', input: '11', tests: ['101', '2'], lc: { n: 1317, slug: 'convert-integer-to-the-sum-of-two-no-zero-integers' },
+    prompt: '<p>Find a + b = n where neither a nor b contains the digit 0.</p>',
+    idea: '<p>Write a small helper <code>hasZero(x)</code>, then try a = 1, 2, 3 … until both a and n − a pass. A helper function keeps the main loop short and easy to read.</p>',
+    code: R`
+#include <stdio.h>
+
+int hasZero(int x) {
+    for (; x > 0; x /= 10) {
+        if (x % 10 == 0) return 1;   //> Found a 0 digit.
+    }
+    return 0;
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    for (int a = 1; a < n; a++) {
+        if (!hasZero(a) && !hasZero(n - a)) {   //> {!} turns “has a zero” into “has no zero”.
+            printf("%d %d\n", a, n - a);
+            break;                               //> The first valid pair is enough.
+        }
+    }
+    return 0;
+}` });
+
+  P({ id: 'lp-pow3', group: 'loops:E', title: 'Power of three', level: 'easy', input: '27', tests: ['45', '1'], lc: { n: 326, slug: 'power-of-three' },
+    prompt: '<p>Is n a power of 3?</p>',
+    idea: '<p>Divide by 3 for as long as it divides evenly. Only a power of 3 ends up at exactly 1.</p>',
+    code: R`
+#include <stdio.h>
+#include <stdbool.h>
+
+bool isPowerOfThree(int n) {
+    if (n <= 0) return false;
+    while (n % 3 == 0) n /= 3;    //> Strip every factor of 3.
+    return n == 1;
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf(isPowerOfThree(n) ? "true\n" : "false\n");
+    return 0;
+}` });
+
+  P({ id: 'lp-sqrt', group: 'loops:E', title: 'Sqrt(x) by linear search', level: 'easy', input: '8', tests: ['16', '0'], lc: { n: 69, slug: 'sqrtx' },
+    prompt: '<p>Return ⌊√x⌋ without sqrt().</p>',
+    idea: '<p>Find the largest i with <code>i × i ≤ x</code>. Use <code>long long</code> so <code>i × i</code> can’t overflow. (Binary search makes it O(log x), which is covered in the Binary Search chapter.)</p>',
+    code: R`
+#include <stdio.h>
+
+int mySqrt(int x) {
+    long long i = 0;
+    while ((i + 1) * (i + 1) <= x) i++;   //> Step up while the next square still fits.
+    return (int)i;
+}
+
+int main() {
+    int x;
+    scanf("%d", &x);
+    printf("%d\n", mySqrt(x));
+    return 0;
+}`,
+    complexity: 'O(√x).' });
+
+  P({ id: 'lp-perfect-sq', group: 'loops:E', title: 'Valid perfect square', level: 'easy', input: '16', tests: ['14'], lc: { n: 367, slug: 'valid-perfect-square' },
+    prompt: '<p>Is num a perfect square?</p>',
+    idea: '<p>The same loop as Sqrt(x), but stop when the square reaches or passes num, then check whether it is exactly equal.</p>',
+    code: R`
+#include <stdio.h>
+#include <stdbool.h>
+
+bool isPerfectSquare(int num) {
+    long long i = 1;
+    while (i * i < num) i++;     //> Smallest i with i² ≥ num.
+    return i * i == num;         //> Exactly equal → a perfect square.
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf(isPerfectSquare(n) ? "true\n" : "false\n");
+    return 0;
+}` });
+
+  P({ id: 'lp-even-digit-sum', group: 'loops:E', title: 'Count integers with even digit sum', level: 'easy', input: '30', tests: ['4'], lc: { n: 2180, slug: 'count-integers-with-even-digit-sum' },
+    prompt: '<p>How many integers in 1…num have an even digit sum?</p>',
+    idea: '<p>Nested loops again: every number (outer) and its digits (inner). Reset the inner accumulator for each new number.</p>',
+    code: R`
+#include <stdio.h>
+
+int countEven(int num) {
+    int count = 0;
+    for (int x = 1; x <= num; x++) {
+        int s = 0;                                 //> Reset for every x.
+        for (int t = x; t > 0; t /= 10) s += t % 10;
+        if (s % 2 == 0) count++;
+    }
+    return count;
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("%d\n", countEven(n));
+    return 0;
+}` });
+
+  P({ id: 'lp-69', group: 'loops:E', title: 'Maximum 69 number', level: 'easy', input: '9669', tests: ['9996', '9999'], lc: { n: 1323, slug: 'maximum-69-number' },
+    prompt: '<p>The number has only digits 6 and 9. Change at most one digit to get the maximum.</p>',
+    idea: '<p>Turn the <b>leftmost 6</b> into a 9, which adds <code>3 × place</code>. Peeling from the right, keep updating the place value of the latest 6 you see. The last one seen is the leftmost.</p>',
+    code: R`
+#include <stdio.h>
+
+int maximum69Number(int num) {
+    int place = 1, best = 0;               //> best = place value of the leftmost 6 (0 = none).
+    for (int t = num; t > 0; t /= 10) {
+        if (t % 10 == 6) best = place;     //> Later (more to the left) 6s overwrite earlier ones.
+        place *= 10;
+    }
+    return num + 3 * best;                 //> 6 → 9 adds 3 at that position.
+}
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("%d\n", maximum69Number(n));
+    return 0;
+}` });
+
+  P({ id: 'lp-symmetric', group: 'loops:E', title: 'Count symmetric integers', level: 'easy', input: '1200 1230', tests: ['1 100'], lc: { n: 2843, slug: 'count-symmetric-integers' },
+    prompt: '<p>A 2k-digit number is symmetric if its first k digits and last k digits have the same sum. Count them in [low, high] (high ≤ 10⁴).</p>',
+    idea: '<p>Only 2-digit and 4-digit numbers can qualify. For 2 digits that means both digits are equal (<code>x % 11 == 0</code>). For 4 digits, compare <code>x / 1000 + x / 100 % 10</code> with <code>x / 10 % 10 + x % 10</code>.</p>',
+    code: R`
+#include <stdio.h>
+
+int countSymmetricIntegers(int low, int high) {
+    int count = 0;
+    for (int x = low; x <= high; x++) {
+        if (x >= 10 && x <= 99) {
+            if (x % 11 == 0) count++;                 //> 11, 22, …, 99.
+        } else if (x >= 1000 && x <= 9999) {
+            int left = x / 1000 + x / 100 % 10;       //> First two digits.
+            int right = x / 10 % 10 + x % 10;         //> Last two digits.
+            if (left == right) count++;
+        }
+    }
+    return count;
+}
+
+int main() {
+    int lo, hi;
+    scanf("%d %d", &lo, &hi);
+    printf("%d\n", countSymmetricIntegers(lo, hi));
+    return 0;
+}` });
+
+  P({ id: 'lp-dec2bin', group: 'loops:E', title: 'Decimal to binary', level: 'easy', input: '13', tests: ['8', '255'],
+    prompt: '<p>Print the binary form of n (as a number made of 0s and 1s).</p>',
+    idea: '<p><code>n % 2</code> is the last binary digit and <code>n / 2</code> removes it, just like <code>% 10</code> and <code>/ 10</code> for decimal digits. The bits come out right-to-left, so place each one at the next <b>place value</b> (1, 10, 100 …) of the answer.</p>',
+    code: R`
+#include <stdio.h>
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    long long bin = 0, place = 1;
+    while (n > 0) {
+        int bit = n % 2;            //> The lowest binary digit.
+        bin += bit * place;         //> Put it in the next decimal column.
+        place *= 10;
+        n /= 2;                     //> Remove that bit.
+    }
+    printf("%lld\n", bin);
+    return 0;
+}` });
+
+  P({ id: 'lp-bin2dec', group: 'loops:E', title: 'Binary to decimal', level: 'easy', input: '1101', tests: ['100000', '11111111'],
+    prompt: '<p>Read a number made of 0s and 1s and print its decimal value.</p>',
+    idea: '<p>The reverse direction: peel decimal digits (each one is a bit) and weigh them by 1, 2, 4, 8 …</p>',
+    code: R`
+#include <stdio.h>
+
+int main() {
+    long long b;
+    scanf("%lld", &b);
+    int value = 0, weight = 1;
+    while (b > 0) {
+        value += (b % 10) * weight;  //> Bit × 2^position.
+        weight *= 2;
+        b /= 10;
+    }
+    printf("%d\n", value);
+    return 0;
+}` });
+
+  P({ id: 'lp-distance', group: 'loops:E', title: 'Total distance traveled', level: 'easy', input: '5 10', tests: ['1 2', '9 2'], lc: { n: 2739, slug: 'total-distance-traveled' },
+    prompt: '<p>A truck does 10 km per litre. Every time 5 litres of the main tank are used, 1 litre moves over from the additional tank (if any is left). Total distance?</p>',
+    idea: '<p>Simulate it in chunks of 5 litres with a <code>while</code>, refilling 1 litre when allowed. Whatever is left at the end is fewer than 5 litres, and it is simply driven.</p>',
+    code: R`
+#include <stdio.h>
+
+int distanceTraveled(int mainTank, int additionalTank) {
+    int dist = 0;
+    while (mainTank >= 5) {
+        mainTank -= 5;                      //> Burn 5 litres …
+        dist += 50;                         //> … for 50 km.
+        if (additionalTank > 0) {           //> Top-up rule.
+            additionalTank--;
+            mainTank++;
+        }
+    }
+    return dist + mainTank * 10;            //> The remaining fuel (under 5 litres).
+}
+
+int main() {
+    int a, b;
+    scanf("%d %d", &a, &b);
+    printf("%d\n", distanceTraveled(a, b));
+    return 0;
+}` });
 })();

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conditionals — C / C++ Notes</title>
+<meta name="description" content="if, else, else-if ladders, nested conditions, logical operators, switch and the ternary operator in C, with problems traced line by line.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=8">
+</head>
+<body>
+<div class="wrap layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <span class="badge">Step 1 · Lec 1 · Conditionals (if / else / switch)</span>
+    <h1>Conditionals</h1>
+    <p class="lead">A program becomes interesting when it can <b>choose</b> what to do. This page covers every form of choice in C: <code>if</code>, <code>else</code>, else-if ladders, nested ifs, <code>&amp;&amp; || !</code>, the ternary operator and <code>switch</code>. Every visualiser has a <b>Decisions</b> tab that lists each check with its real values, and <b>try:</b> buttons that re-run the program with inputs that take the other branches.</p>
+
+    <h2 id="method"><span class="secnum">★</span>How to write any conditional problem</h2>
+    <div class="callout tip"><div class="callout-title">The case table</div>
+      <ol>
+        <li><b>List every outcome</b> the program can print (positive / negative / zero …).</li>
+        <li><b>Write one condition per outcome</b>, and pick one test input for each outcome before coding.</li>
+        <li><b>Order them</b>: special and most specific cases first (origin before axis, “both” before “either”, the narrowest range first). The <code>else</code> takes whatever is left.</li>
+        <li><b>Run every test input</b>. Every branch should run at least once.</li>
+      </ol>
+    </div>
+    <table class="tbl"><tr><th>form</th><th>use it when</th></tr>
+      <tr><td><code>if</code></td><td>something optional should happen (or not)</td></tr>
+      <tr><td><code>if … else</code></td><td>exactly two outcomes</td></tr>
+      <tr><td><code>if … else if … else</code></td><td>several outcomes, tested in order. Only the <b>first true</b> branch runs</td></tr>
+      <tr><td>nested <code>if</code></td><td>a second question only makes sense after the first (“is it a triangle?” → “which type?”)</td></tr>
+      <tr><td><code>switch</code></td><td>one value compared against many <b>constant</b> cases</td></tr>
+      <tr><td><code>c ? a : b</code></td><td>picking a <b>value</b> (not a block of code) based on a condition</td></tr>
+    </table>
+
+    <h2 id="if"><span class="secnum">1</span>if and if-else</h2>
+    <p>The condition is any expression: <b>0 means false, anything else means true</b>. Comparisons (<code>== != &lt; &gt; &lt;= &gt;=</code>) give 1 or 0.</p>
+    <div data-example="ex-c-if"></div>
+
+    <h2 id="ladder"><span class="secnum">2</span>else-if ladders: order matters</h2>
+    <p>C checks the conditions top to bottom and runs only the <b>first</b> branch whose condition is true, skipping the rest. So every later branch can assume that all the earlier conditions were false. That is why each range test below only needs one comparison.</p>
+    <div data-example="ex-c-order"></div>
+
+    <h2 id="logic"><span class="secnum">3</span>Logical operators and short-circuit</h2>
+    <table class="tbl"><tr><th>operator</th><th>true when</th><th>stops early when</th></tr>
+      <tr><td><code>a &amp;&amp; b</code></td><td>both are true</td><td>a is false (b is never evaluated)</td></tr>
+      <tr><td><code>a || b</code></td><td>at least one is true</td><td>a is true (b is never evaluated)</td></tr>
+      <tr><td><code>!a</code></td><td>a is false</td><td>—</td></tr>
+    </table>
+    <p><code>&amp;&amp;</code> binds tighter than <code>||</code>, so <code>a || b &amp;&amp; c</code> means <code>a || (b &amp;&amp; c)</code>. Add brackets whenever you mix them.</p>
+    <div data-example="ex-c-short"></div>
+
+    <h2 id="nested"><span class="secnum">4</span>Nested ifs and the dangling else</h2>
+    <div data-example="ex-c-dangling"></div>
+
+    <h2 id="ternary"><span class="secnum">5</span>The ternary operator</h2>
+    <div data-example="ex-c-ternary"></div>
+    <p>For <code>switch</code> (with fall-through) see <a href="basics.html#switch">C basics § 6</a> and the “days in a month” problem below.</p>
+
+    <h2 id="traps"><span class="secnum">6</span>Bugs to recognise on sight</h2>
+    <div class="grid2">
+      <div class="callout trap"><div class="callout-title"><code>=</code> instead of <code>==</code></div><code>if (x = 5)</code> assigns 5 and is always true. Some people write <code>if (5 == x)</code> so that this typo becomes a compile error.</div>
+      <div class="callout trap"><div class="callout-title">Stray semicolon</div><code>if (x &gt; 0);</code> ends the if with an empty statement. The block below then <b>always</b> runs.</div>
+      <div class="callout trap"><div class="callout-title">Chained comparisons</div><code>1 &lt; x &lt; 5</code> means <code>(1 &lt; x) &lt; 5</code>, which is 0 or 1 compared with 5, so it is always true. Write <code>x &gt; 1 &amp;&amp; x &lt; 5</code>.</div>
+      <div class="callout trap"><div class="callout-title">Comparing doubles with ==</div><code>0.1 + 0.2 == 0.3</code> is <b>false</b>. Compare with a tolerance: <code>fabs(a - b) &lt; 1e-9</code>.</div>
+      <div class="callout trap"><div class="callout-title">Wrong order in a ladder</div>A wide test (<code>x &gt;= 10</code>) placed before a narrow one (<code>x &gt;= 30</code>) makes the narrow branch unreachable.</div>
+      <div class="callout trap"><div class="callout-title">Missing braces</div>Without <code>{ }</code> only <b>one</b> statement belongs to the if. A second, indented line runs every time.</div>
+    </div>
+
+    <section><h2 id="p-a" data-short="A · Basic if / else"><span class="secnum">A</span>Basic if / else</h2>
+      <div class="plist" data-group="cond:A" data-prefix="A"></div></section>
+    <section><h2 id="p-b" data-short="B · Ladders & ranges"><span class="secnum">B</span>Else-if ladders, ranges &amp; switch</h2>
+      <p class="muted">Several outcomes, ordered from the most specific to the most general.</p>
+      <div class="plist" data-group="cond:B" data-prefix="B"></div></section>
+    <section><h2 id="p-c" data-short="C · Nested & combined"><span class="secnum">C</span>Nested &amp; combined logic</h2>
+      <p class="muted">Decision trees, validation before classification, and comparing in a fixed order.</p>
+      <div class="plist" data-group="cond:C" data-prefix="C"></div></section>
+    <section><h2 id="p-d" data-short="D · LeetCode"><span class="secnum">D</span>LeetCode conditional problems</h2>
+      <p class="muted">Problems whose whole solution is choosing the right case.</p>
+      <div class="plist" data-group="cond:D" data-prefix="D"></div></section>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=8"></script>
+<script src="assets/js/site.js?v=8"></script>
+<script src="assets/js/viz.js?v=8"></script>
+<script src="assets/data/conditionals.js?v=8"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=5">
+<link rel="stylesheet" href="assets/css/style.css?v=8">
 </head>
 <body>
 <div class="wrap">
@@ -20,6 +20,7 @@
       <div class="stats" id="stats"></div>
       <p style="display:flex;gap:8px;flex-wrap:wrap">
         <a class="btn primary" href="basics.html">Start with C basics →</a>
+        <a class="btn" href="conditionals.html">Conditionals</a>
         <a class="btn" href="loops.html">Loops</a>
         <a class="btn" href="sequences.html">Sequences</a>
         <a class="btn" href="patterns.html">Patterns</a>
@@ -29,6 +30,7 @@
     <h2 id="topics">Topics</h2>
     <div class="cards">
       <a class="card" href="basics.html"><span class="ic">1</span><h3>C basics</h3><p>Structure, types, printf/scanf, operators, if/else, switch, functions, C++ I/O.</p><span class="pill easy">ready</span></a>
+      <a class="card" href="conditionals.html"><span class="ic">1b</span><h3>Conditionals</h3><p>if / else, else-if ladders, nested ifs, &amp;&amp; || !, ternary, switch, with a Decisions view of every branch.</p><span class="pill easy">ready</span></a>
       <a class="card" href="loops.html"><span class="ic">2</span><h3>Loops &amp; nested loops</h3><p>for / while / do-while, break/continue, digits, divisors, primes, GCD, nested-loop counting.</p><span class="pill easy">ready</span></a>
       <a class="card" href="sequences.html"><span class="ic">2b</span><h3>Sequences &amp; series</h3><p>Sums, AP/GP, alternating and fractional series, Fibonacci-style recurrences, Collatz, happy numbers.</p><span class="pill easy">ready</span></a>
       <a class="card" href="patterns.html"><span class="ic">3</span><h3>Patterns</h3><p>3 methods, 10 categories: triangles, pyramids, diamonds, hollow shapes, letters, and the hard mixed ones.</p><span class="pill easy">ready</span></a>
@@ -62,12 +64,13 @@
     <p class="muted small">The visualiser runs a small C interpreter in your browser. Every program on this site is checked to print exactly what <code>gcc</code> prints.</p>
   </main>
 </div>
-<script src="assets/js/cinterp.js?v=5"></script>
-<script src="assets/js/site.js?v=5"></script>
-<script src="assets/data/basics.js?v=5"></script>
-<script src="assets/data/loops.js?v=5"></script>
-<script src="assets/data/sequences.js?v=5"></script>
-<script src="assets/data/patterns.js?v=5"></script>
+<script src="assets/js/cinterp.js?v=8"></script>
+<script src="assets/js/site.js?v=8"></script>
+<script src="assets/data/basics.js?v=8"></script>
+<script src="assets/data/conditionals.js?v=8"></script>
+<script src="assets/data/loops.js?v=8"></script>
+<script src="assets/data/sequences.js?v=8"></script>
+<script src="assets/data/patterns.js?v=8"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var all = CN.items.filter(function (d) { return !d.example; });

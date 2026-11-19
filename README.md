@@ -10,7 +10,8 @@ trace table, and your own input).
 | Page | Contents |
 |---|---|
 | `basics.html` | program structure, types, I/O, operators, if/else, switch, functions, C++ I/O + problems |
-| `loops.html` | for / while / do-while, break/continue, nested loops + digit, divisor, prime, GCD problems |
+| `conditionals.html` | if / else, ladders, nested, logical operators, ternary, switch (23 problems, Decisions view) |
+| `loops.html` | for / while / do-while, break/continue, nested loops + 36 problems (digits, divisors, primes, GCD, bases, LeetCode practice) |
 | `sequences.html` | sums, AP/GP, alternating & fractional series, recurrences, run-until sequences (25 problems) |
 | `patterns.html` | 3 methods and 52 patterns in 10 categories, from squares to the spiral matrix |
 
