@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loops — C / C++ Notes</title>
+<meta name="description" content="for, while, do-while, break/continue and nested loops in C, with LeetCode problems traced line by line.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=4">
+</head>
+<body>
+<div class="wrap layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <span class="badge">Step 1 · Lec 1 · Loops &amp; nested loops</span>
+    <h1>Loops &amp; nested loops</h1>
+    <p class="lead">A loop repeats a block of code. Almost every problem from here on is “loop over something and keep track of something”. Every example below runs in the visualiser: step through it and watch the <b>condition being checked</b> on each pass.</p>
+
+    <h2 id="for"><span class="secnum">1</span>The for loop</h2>
+    <pre class="c">
+for (init; condition; update) {
+    body
+}</pre>
+    <table class="tbl"><tr><th>part</th><th>runs</th><th>job</th></tr>
+      <tr><td><code>init</code></td><td>once, at the start</td><td>create / set the counter</td></tr>
+      <tr><td><code>condition</code></td><td>before <b>every</b> pass</td><td>true → run the body, false → leave the loop</td></tr>
+      <tr><td><code>body</code></td><td>after each true check</td><td>the work</td></tr>
+      <tr><td><code>update</code></td><td>after <b>every</b> body</td><td>move the counter (<code>i++</code>, <code>i += 2</code>, <code>i /= 10</code> …)</td></tr>
+    </table>
+    <p>The order is <b>init → check → body → update → check → body → update → … → check (false) → leave</b>. The check runs one more time than the body: for 4 passes it runs 5 times, and the last check is the one that fails.</p>
+    <div data-example="ex-for"></div>
+
+    <h2 id="while"><span class="secnum">2</span>The while loop</h2>
+    <p>Use <code>while</code> when you <b>don’t know how many times</b> the loop will run, only when to stop: “while there are digits left”, “while b is not 0”. A <code>for</code> loop is just a <code>while</code> with its init and update gathered on one line.</p>
+    <div data-example="ex-while"></div>
+    <div class="callout idea"><div class="callout-title">The digit toolkit (you will use this a lot)</div>
+      <table class="tbl"><tr><th>expression</th><th>for n = 4721</th><th>meaning</th></tr>
+        <tr><td><code>n % 10</code></td><td>1</td><td>last digit</td></tr>
+        <tr><td><code>n / 10</code></td><td>472</td><td>remove the last digit</td></tr>
+        <tr><td><code>rev * 10 + d</code></td><td>—</td><td>append digit d to the end of rev</td></tr>
+        <tr><td><code>while (n &gt; 0)</code></td><td>—</td><td>repeat once per digit</td></tr>
+      </table>
+    </div>
+
+    <h2 id="dowhile"><span class="secnum">3</span>The do-while loop</h2>
+    <p>The body runs <b>first</b> and the condition is checked <b>after</b>, so the body always runs at least once. It is rarely needed, but it is the right tool when the first pass must always happen.</p>
+    <div data-example="ex-dowhile"></div>
+
+    <h2 id="break"><span class="secnum">4</span>break &amp; continue</h2>
+    <div data-example="ex-break"></div>
+
+    <h2 id="nested"><span class="secnum">5</span>Nested loops</h2>
+    <p>A loop inside a loop. The inner loop runs <b>completely</b> for every single pass of the outer loop, so the total work is (outer passes) × (inner passes). If the inner limit depends on the outer variable (<code>j &lt;= i</code>), the inner loop runs a different number of times on each row. That is exactly how triangle patterns work.</p>
+    <div data-example="ex-nested"></div>
+    <div class="grid2">
+      <div class="callout"><div class="callout-title">Counting iterations</div>
+        <ul><li><code>i: 0..n</code>, <code>j: 0..n</code> → n²</li><li><code>j: 0..i</code> → 1+2+…+n = n(n+1)/2 ≈ n²/2</li><li><code>j: i+1..n</code> (pairs) → n(n−1)/2</li><li><code>j *= 2</code> inner → n log n</li></ul></div>
+      <div class="callout trap"><div class="callout-title">Loop bugs</div>
+        <ul><li><code>for (...);</code> with a stray <b>semicolon</b> makes the body an empty statement.</li><li>Forgetting the update in a <code>while</code> → infinite loop. The visualiser stops after 30 000 steps.</li><li>Reusing the same variable (<code>i</code>) in both the outer and inner loop.</li></ul></div>
+    </div>
+
+    <h2 id="trace"><span class="secnum">6</span>How to trace a loop by hand</h2>
+    <ol>
+      <li>Draw a table: one column per variable, plus one for the output.</li>
+      <li>Write a new row <b>every time a variable changes</b>. Write the check result (T/F) for the loop condition.</li>
+      <li>Stop when the condition is false and write the final output.</li>
+    </ol>
+    <p>Every visualiser has a <b>Trace table</b> tab that builds exactly this table, and a <b>🎯 Trace it myself</b> button that blurs the values so you can predict each one before checking.</p>
+
+    <section><h2 id="p-basic" data-short="Problems · basic loops"><span class="secnum">P1</span>Problems: basic loops &amp; simulation</h2>
+      <div class="plist" data-group="loops:A" data-prefix="L"></div></section>
+    <section><h2 id="p-digits" data-short="Problems · digits"><span class="secnum">P2</span>Problems: digit manipulation</h2>
+      <div class="plist" data-group="loops:B" data-prefix="D"></div></section>
+    <section><h2 id="p-maths" data-short="Problems · divisors, primes, gcd"><span class="secnum">P3</span>Problems: divisors, primes, GCD</h2>
+      <div class="plist" data-group="loops:C" data-prefix="M"></div></section>
+    <section><h2 id="p-nested" data-short="Problems · nested loops"><span class="secnum">P4</span>Problems: nested loops</h2>
+      <p class="muted">For lots more nested-loop practice, go to the <a href="patterns.html">Patterns</a> page.</p>
+      <div class="plist" data-group="loops:D" data-prefix="N"></div></section>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=4"></script>
+<script src="assets/js/site.js?v=4"></script>
+<script src="assets/js/viz.js?v=4"></script>
+<script src="assets/data/loops.js?v=4"></script>
+</body>
+</html>

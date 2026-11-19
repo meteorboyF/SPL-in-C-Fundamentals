@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C / C++ Notes — problem solving, line by line</title>
+<meta name="description" content="Topic-wise C and C++ problem solving notes following the Striver A2Z DSA order, with a line-by-line code visualiser for every problem.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=4">
+</head>
+<body>
+<div class="wrap">
+  <main class="main" style="max-width:1100px;margin:0 auto">
+    <section class="hero">
+      <span class="badge">SPL · C &amp; C++ fundamentals · LeetCode-focused</span>
+      <h1>Learn C by <em>watching every line run</em>.</h1>
+      <p class="lead">Topic-wise notes for problem solving in C and C++, in the order of Striver’s A2Z DSA course. Every problem has an idea, a solution where <b>each line is explained</b>, the real output, and a <b>visualiser</b> that runs the code one line at a time. You can see the variables, the output, a pattern grid and a trace table, and feed it your own input.</p>
+      <div class="stats" id="stats"></div>
+      <p style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn primary" href="basics.html">Start with C basics →</a>
+        <a class="btn" href="loops.html">Loops</a>
+        <a class="btn" href="patterns.html">Patterns</a>
+      </p>
+    </section>
+
+    <h2 id="topics">Topics</h2>
+    <div class="cards">
+      <a class="card" href="basics.html"><span class="ic">1</span><h3>C basics</h3><p>Structure, types, printf/scanf, operators, if/else, switch, functions, C++ I/O.</p><span class="pill easy">ready</span></a>
+      <a class="card" href="loops.html"><span class="ic">2</span><h3>Loops &amp; nested loops</h3><p>for / while / do-while, break/continue, digits, divisors, primes, GCD, nested-loop counting.</p><span class="pill easy">ready</span></a>
+      <a class="card" href="patterns.html"><span class="ic">3</span><h3>Patterns</h3><p>3 methods, 10 categories: triangles, pyramids, diamonds, hollow shapes, letters, and the hard mixed ones.</p><span class="pill easy">ready</span></a>
+      <div class="card soon"><span class="ic">4</span><h3>Basic maths</h3><p>Digits, Armstrong, divisors, primes, sieve, GCD/LCM, fast power.</p><span class="pill">next</span></div>
+      <div class="card soon"><span class="ic">5</span><h3>Recursion</h3><p>Recursion tree, stack frames, parameterised vs functional, multiple calls.</p><span class="pill">soon</span></div>
+      <div class="card soon"><span class="ic">6</span><h3>Hashing</h3><p>Frequency counting with arrays and maps.</p><span class="pill">soon</span></div>
+      <div class="card soon"><span class="ic">7</span><h3>Sorting</h3><p>Selection, bubble, insertion, merge, quick sort, each one animated.</p><span class="pill">soon</span></div>
+      <div class="card soon"><span class="ic">8</span><h3>Arrays</h3><p>Easy → medium → hard: two pointers, Kadane, prefix sums, matrices.</p><span class="pill">soon</span></div>
+      <div class="card soon"><span class="ic">9</span><h3>Binary search</h3><p>On arrays, on answers, on 2D.</p><span class="pill">soon</span></div>
+      <div class="card soon"><span class="ic">10</span><h3>Strings, linked list, stack/queue …</h3><p>The rest of the A2Z order.</p><span class="pill">soon</span></div>
+    </div>
+
+    <h2 id="how">How to use these notes</h2>
+    <div class="steps-row">
+      <div class="callout"><div class="callout-title">1 · Read the idea</div>Each problem starts with how to think about it: the table, the formula, or the invariant. Try writing the code yourself before you open the solution.</div>
+      <div class="callout tip"><div class="callout-title">2 · Step through it</div>Press <b>Step ▶</b> (or the → key). The yellow line is the one about to run. The box on the right tells you what it did, with the real values filled in.</div>
+      <div class="callout idea"><div class="callout-title">3 · Trace it yourself</div>Press <b>🎯 Trace it myself</b> to blur the values, predict the next one, then click to reveal it. The <b>Trace table</b> tab is your paper trace, built for you.</div>
+    </div>
+
+    <h2 id="viz">What the visualiser shows</h2>
+    <table class="tbl">
+      <tr><th>panel</th><th>what it tells you</th></tr>
+      <tr><td>Code</td><td>the line that runs now (yellow). Click any line to jump to the next time it runs.</td></tr>
+      <tr><td>Now</td><td>what the line did (<code>row &lt; n → 2 &lt; 5 → true</code>) and why the line is there</td></tr>
+      <tr><td>Variables</td><td>every stack frame and variable. Changed values flash, and arrays are drawn as boxes</td></tr>
+      <tr><td>Output</td><td>the console. What this step printed is highlighted, and your typed input is green</td></tr>
+      <tr><td>Pattern grid</td><td>(patterns) which cell each <code>printf</code> filled, with spaces shown as dots</td></tr>
+      <tr><td>Row analysis</td><td>(patterns) spaces and characters counted for every line, so you can find the formula</td></tr>
+      <tr><td>Trace table</td><td>one row per change: the table you would draw on paper</td></tr>
+    </table>
+    <p class="muted small">The visualiser runs a small C interpreter in your browser. Every program on this site is checked to print exactly what <code>gcc</code> prints.</p>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=4"></script>
+<script src="assets/js/site.js?v=4"></script>
+<script src="assets/data/basics.js?v=4"></script>
+<script src="assets/data/loops.js?v=4"></script>
+<script src="assets/data/patterns.js?v=4"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var all = CN.items.filter(function (d) { return !d.example; });
+  var lc = all.filter(function (d) { return d.lc; }).length;
+  var pats = all.filter(function (d) { return /^patterns/.test(d.group); }).length;
+  var stats = [[all.length, 'problems with full solutions'], [pats, 'patterns in 10 categories'], [lc, 'LeetCode problems so far'], [CN.items.length, 'programs you can step through']];
+  document.getElementById('stats').innerHTML = stats.map(function (s) { return '<div class="stat"><b>' + s[0] + '</b><span>' + s[1] + '</span></div>'; }).join('');
+});
+</script>
+</body>
+</html>

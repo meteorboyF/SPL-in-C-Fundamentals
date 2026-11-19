@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C Basics — C / C++ Notes</title>
+<meta name="description" content="C fundamentals: program structure, data types, input/output, operators, if/else, switch, functions — every example traced line by line.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=4">
+</head>
+<body>
+<div class="wrap layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <span class="badge">Step 1 · Lec 1 · Learn the basics</span>
+    <h1>C basics</h1>
+    <p class="lead">Everything you need before loops: how a program is laid out, variables and types, reading and printing, operators, decisions, and functions. Each example is live: press <b>Step ▶</b> and watch the highlighted line, the variables and the output change.</p>
+
+    <h2 id="structure"><span class="secnum">1</span>Structure of a C program</h2>
+    <p>A C file is a list of <code>#include</code>s (libraries you want to use) followed by functions. The computer always starts at <code>main()</code> and runs its statements top to bottom. Every statement ends with <code>;</code>, and <code>{ }</code> group statements into a block.</p>
+    <div data-example="ex-hello"></div>
+    <div class="callout tip"><div class="callout-title">Compile and run (terminal)</div>
+      <pre class="c">
+gcc hello.c -o hello     // C   (use g++ for C++)
+./hello</pre></div>
+
+    <h2 id="types"><span class="secnum">2</span>Variables &amp; data types</h2>
+    <p>A variable is a named box in memory. Its type fixes its size and what it can hold.</p>
+    <div class="table-scroll"><table class="tbl">
+      <tr><th>type</th><th>holds</th><th>size</th><th>range (approx.)</th><th>printf</th><th>scanf</th></tr>
+      <tr><td><code>int</code></td><td>whole number</td><td>4 B</td><td>±2.1 × 10⁹</td><td><code>%d</code></td><td><code>%d</code></td></tr>
+      <tr><td><code>long long</code></td><td>big whole number</td><td>8 B</td><td>±9.2 × 10¹⁸</td><td><code>%lld</code></td><td><code>%lld</code></td></tr>
+      <tr><td><code>float</code></td><td>decimal (~7 digits)</td><td>4 B</td><td>±3.4 × 10³⁸</td><td><code>%f</code></td><td><code>%f</code></td></tr>
+      <tr><td><code>double</code></td><td>decimal (~15 digits)</td><td>8 B</td><td>±1.7 × 10³⁰⁸</td><td><code>%f</code> / <code>%.2f</code></td><td><code>%lf</code></td></tr>
+      <tr><td><code>char</code></td><td>one character (a small int)</td><td>1 B</td><td>−128 … 127</td><td><code>%c</code></td><td><code>" %c"</code></td></tr>
+      <tr><td><code>bool</code></td><td>true / false (<code>&lt;stdbool.h&gt;</code>)</td><td>1 B</td><td>0 or 1</td><td><code>%d</code></td><td>—</td></tr>
+    </table></div>
+    <div data-example="ex-types"></div>
+    <div class="callout trap"><div class="callout-title">Overflow</div>If a result goes beyond the range of its type, it wraps around to a wrong value without any error. On LeetCode this is the most common reason for <i>Wrong Answer</i> on large inputs. When numbers can pass about 2 × 10⁹, use <code>long long</code>.</div>
+
+    <h2 id="io"><span class="secnum">3</span>Input &amp; output</h2>
+    <p><code>printf("format", values…)</code> prints the format string and replaces each <code>%</code> placeholder with the next value. <code>scanf("format", &amp;vars…)</code> does the opposite: it reads what the user types into the variables. The <code>&amp;</code> passes the variable’s address, so scanf can write into it.</p>
+    <table class="tbl"><tr><th>escape</th><th>meaning</th><th>format</th><th>meaning</th></tr>
+      <tr><td><code>\n</code></td><td>new line</td><td><code>%5d</code></td><td>right-align in 5 characters</td></tr>
+      <tr><td><code>\t</code></td><td>tab</td><td><code>%-5d</code></td><td>left-align in 5 characters</td></tr>
+      <tr><td><code>\\</code></td><td>backslash</td><td><code>%05d</code></td><td>pad with zeros: 00042</td></tr>
+      <tr><td><code>\"</code></td><td>double quote</td><td><code>%.3f</code></td><td>3 digits after the point</td></tr>
+    </table>
+    <div data-example="ex-io"></div>
+
+    <h2 id="ops"><span class="secnum">4</span>Operators</h2>
+    <table class="tbl"><tr><th>kind</th><th>operators</th><th>note</th></tr>
+      <tr><td>arithmetic</td><td><code>+ - * / %</code></td><td>int / int drops the fraction. <code>%</code> works on ints only</td></tr>
+      <tr><td>relational</td><td><code>== != &lt; &gt; &lt;= &gt;=</code></td><td>give 1 (true) or 0 (false)</td></tr>
+      <tr><td>logical</td><td><code>&amp;&amp; || !</code></td><td>short-circuit: <code>&amp;&amp;</code> stops at the first false</td></tr>
+      <tr><td>assignment</td><td><code>= += -= *= /= %=</code></td><td><code>x += 3</code> is <code>x = x + 3</code></td></tr>
+      <tr><td>increment</td><td><code>++ --</code></td><td><code>i++</code> gives the old value, <code>++i</code> the new one</td></tr>
+      <tr><td>ternary</td><td><code>c ? a : b</code></td><td>a value-producing if-else</td></tr>
+    </table>
+    <div data-example="ex-div"></div>
+    <div data-example="ex-incr"></div>
+
+    <h2 id="if"><span class="secnum">5</span>if / else</h2>
+    <div data-example="ex-if"></div>
+    <div data-example="ex-logic"></div>
+    <div class="callout trap"><div class="callout-title">Classic mistakes</div>
+      <ul><li><code>if (x = 5)</code> <b>assigns</b> 5 and is always true. Use <code>==</code>.</li>
+      <li><code>if (x &gt; 0);</code> — the stray semicolon ends the if right there.</li>
+      <li><code>1 &lt; x &lt; 5</code> does not mean what it does in maths. Write <code>x &gt; 1 &amp;&amp; x &lt; 5</code>.</li></ul></div>
+
+    <h2 id="switch"><span class="secnum">6</span>switch</h2>
+    <p>Use it when one value is compared against many <b>constants</b>. Each <code>case</code> is a jump target, and <code>break</code> leaves the switch.</p>
+    <div data-example="ex-switch"></div>
+
+    <h2 id="func"><span class="secnum">7</span>Functions</h2>
+    <p>A function is a named piece of code with inputs (parameters) and one output (the return value). LeetCode problems are always written as a function, so get used to the shape <code>returnType name(params) { … return value; }</code>.</p>
+    <div data-example="ex-func"></div>
+
+    <h2 id="cpp"><span class="secnum">8</span>Switching to C++</h2>
+    <p>C++ contains almost all of C, so everything above still works. For DSA you will mainly add <code>cin</code>/<code>cout</code> now and the STL (vector, map, sort …) later. Striver’s course is in C++, and these notes switch to it when the STL is needed.</p>
+    <div data-example="ex-cpp"></div>
+
+    <section><h2 id="problems" data-short="Problems"><span class="secnum">P</span>Problems</h2>
+      <p class="muted">Each LeetCode problem shows the function you would submit, plus a small <code>main()</code> so it runs here.</p>
+      <div class="plist" data-group="basics:A" data-prefix="B"></div></section>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=4"></script>
+<script src="assets/js/site.js?v=4"></script>
+<script src="assets/js/viz.js?v=4"></script>
+<script src="assets/data/basics.js?v=4"></script>
+</body>
+</html>

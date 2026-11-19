@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patterns — C / C++ Notes</title>
+<meta name="description" content="Every star, number and letter pattern in C, grouped by technique, with a line-by-line visualiser and a pattern grid.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=4">
+</head>
+<body>
+<div class="wrap layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <span class="badge">Step 1 · Lec 1 · Striver A2Z “22 patterns” + many more</span>
+    <h1>Patterns</h1>
+    <p class="lead">Patterns are the best practice for <b>nested loops</b>. They look like 50 different puzzles, but there are really only <b>3 methods</b>. This page teaches the 3 methods first, then groups every pattern (including all the ones from your repo) by the method it needs, from the solid square up to the spiral matrix.</p>
+
+    <h2 id="method"><span class="secnum">★</span>How to solve any pattern</h2>
+    <div class="callout tip"><div class="callout-title">The 4-step routine (works every time)</div>
+      <ol>
+        <li><b>Count the rows</b> → that is the outer loop: <code>for (row = 0; row &lt; ROWS; row++)</code>. Inside it, the last statement is <code>printf("\n")</code>.</li>
+        <li><b>Split one row into parts</b>: spaces, then stars, then maybe spaces/numbers again. Each part gets <b>its own inner loop</b>, one after the other (not inside each other).</li>
+        <li><b>Make a table</b> with one line per row: <i>row number → how many of each part</i>. Find the formula in terms of <code>row</code> and <code>n</code>. These formulas are your inner loop limits.</li>
+        <li><b>Decide what to print</b> in each cell: a star, <code>col + 1</code>, <code>row + 1</code>, a letter <code>'A' + col</code>, a counter …</li>
+      </ol>
+    </div>
+    <p>Every problem below has a <b>Pattern grid</b> tab in its visualiser. It shows which cell each <code>printf</code> fills, and grey dots mark the spaces that your code really printed. The <b>Row analysis</b> tab builds the step-3 table for you by counting the spaces and characters in every line.</p>
+
+    <h3 id="m1">Method 1 — Count method (triangles, pyramids)</h3>
+    <p>Use it when a row is “<i>k spaces then m stars</i>”. Example: the pyramid for n = 4.</p>
+    <div class="grid2">
+      <pre class="console">   *        row 0: 3 spaces, 1 star
+  ***       row 1: 2 spaces, 3 stars
+ *****      row 2: 1 space,  5 stars
+*******     row 3: 0 spaces, 7 stars</pre>
+      <table class="tbl formula"><tr><th>row</th><th>spaces</th><th>stars</th></tr><tr><td>0</td><td>3</td><td>1</td></tr><tr><td>1</td><td>2</td><td>3</td></tr><tr><td>2</td><td>1</td><td>5</td></tr><tr><td><b>row</b></td><td><b>n − row − 1</b></td><td><b>2·row + 1</b></td></tr></table>
+    </div>
+    <pre class="c">
+for (int row = 0; row < n; row++) {
+    for (int col = 0; col < n - row - 1; col++) printf(" ");   // part 1
+    for (int col = 0; col < 2 * row + 1; col++) printf("*");   // part 2
+    printf("\n");
+}</pre>
+    <div class="callout idea"><div class="callout-title">Finding the formula quickly</div>
+      <ul>
+        <li>The count goes up by 1 each row → it is <code>row + c</code>. Down by 1 → <code>c − row</code>. Up by 2 → <code>2·row + c</code>.</li>
+        <li>Find <code>c</code> by looking at row 0.</li>
+        <li><b>Check:</b> in a centred or right-aligned pattern, spaces + stars should add up to a fixed width.</li>
+      </ul>
+    </div>
+
+    <h3 id="m2">Method 2 — Grid method (letters, hollow shapes)</h3>
+    <p>Use it when the stars are scattered: <b>loop over every cell of a bounding box</b> and decide each cell with an <code>if</code>. A star goes where the cell lies on a line of the shape:</p>
+    <table class="tbl"><tr><th>line in the box</th><th>condition</th></tr>
+      <tr><td>top / bottom row</td><td><code>row == 0</code> / <code>row == n - 1</code></td></tr>
+      <tr><td>left / right column</td><td><code>col == 0</code> / <code>col == n - 1</code></td></tr>
+      <tr><td>middle row / column</td><td><code>row == n / 2</code> / <code>col == n / 2</code></td></tr>
+      <tr><td>\ diagonal</td><td><code>row == col</code></td></tr>
+      <tr><td>/ diagonal</td><td><code>row + col == n - 1</code></td></tr>
+      <tr><td>chessboard colour</td><td><code>(row + col) % 2 == 0</code></td></tr>
+    </table>
+    <p>Combine them with <code>||</code>: the letter <b>Z</b> is <code>row == 0 || row == n-1 || row + col == n-1</code>. Hollow shapes are “solid shape loops + border test”.</p>
+
+    <h3 id="m3">Method 3 — Mirror method (diamonds, butterflies)</h3>
+    <p>Use it when the bottom half mirrors the top half. There are three ways, from easiest to most elegant:</p>
+    <ol>
+      <li><b>Two loops</b>: write the top half, then write the bottom half as a separate loop (skip the shared middle row).</li>
+      <li><b>One loop + if</b>: loop <code>2n − 1</code> rows, and compute <code>k = row &lt; n ? row + 1 : 2n − row − 1</code>.</li>
+      <li><b>One loop + abs()</b>: loop <code>i</code> from <code>−(n−1)</code> to <code>n−1</code>. Then <code>abs(i)</code> is the distance from the middle row, and it goes 3 2 1 0 1 2 3 by itself.</li>
+    </ol>
+
+    <h3 id="which">Which method? Recognise it in 5 seconds</h3>
+    <table class="tbl"><tr><th>You see…</th><th>Method</th><th>Section</th></tr>
+      <tr><td>every row the same length</td><td>plain nested loop</td><td><a href="#cat-a">A</a></td></tr>
+      <tr><td>rows get longer/shorter, left edge straight</td><td>count (1 part)</td><td><a href="#cat-b">B</a>, <a href="#cat-d">D</a>, <a href="#cat-e">E</a></td></tr>
+      <tr><td>right edge straight / centred</td><td>count (spaces + stars)</td><td><a href="#cat-c">C</a>, <a href="#cat-f">F</a></td></tr>
+      <tr><td>top half mirrored below</td><td>mirror</td><td><a href="#cat-g">G</a></td></tr>
+      <tr><td>only an outline</td><td>solid loops + border <code>if</code></td><td><a href="#cat-h">H</a></td></tr>
+      <tr><td>a letter / diagonal lines</td><td>grid + condition</td><td><a href="#cat-i">I</a></td></tr>
+      <tr><td>several of the above at once</td><td>mix them</td><td><a href="#cat-j">J</a></td></tr>
+    </table>
+
+    <div class="callout trap"><div class="callout-title">Why patterns go wrong (check these first)</div>
+      <ul>
+        <li><b>0-based vs 1-based mixing</b>: if <code>row</code> starts at 0, the first row has <code>row + 1</code> stars. If it starts at 1, it has <code>row</code> stars. Choose one style and keep it for the whole program.</li>
+        <li><b><code>&lt;</code> vs <code>&lt;=</code></b>: <code>col &lt; k</code> runs k times, <code>col &lt;= k</code> runs k + 1 times.</li>
+        <li><b><code>printf("\n")</code> in the wrong place</b>: it belongs after all the inner loops and inside the outer loop.</li>
+        <li><b>Nesting the parts</b>: the space loop and the star loop come one <i>after</i> the other. Putting one inside the other multiplies the counts.</li>
+        <li><b>Hollow shapes without spaces</b>: inside cells must print <code>" "</code>, otherwise the right border shifts left.</li>
+      </ul>
+    </div>
+
+    <section><h2 id="cat-a" data-short="A · Squares & rectangles"><span class="secnum">A</span>Squares &amp; rectangles</h2>
+      <p class="muted">Every row is the same. Learn which loop is the row and which is the column.</p>
+      <div class="plist" data-group="patterns:A" data-prefix="A"></div></section>
+
+    <section><h2 id="cat-b" data-short="B · Left triangles"><span class="secnum">B</span>Right-angled triangles (left-aligned)</h2>
+      <p class="muted">Count method with one part. The inner limit depends on <code>row</code>.</p>
+      <div class="plist" data-group="patterns:B" data-prefix="B"></div></section>
+
+    <section><h2 id="cat-c" data-short="C · Right-aligned triangles"><span class="secnum">C</span>Right-aligned triangles</h2>
+      <p class="muted">Count method with two parts: spaces, then stars.</p>
+      <div class="plist" data-group="patterns:C" data-prefix="C"></div></section>
+
+    <section><h2 id="cat-d" data-short="D · Letter triangles"><span class="secnum">D</span>Alphabet / character triangles</h2>
+      <p class="muted">Same shapes. The value is a <code>char</code>, which is just a number you can add to.</p>
+      <div class="plist" data-group="patterns:D" data-prefix="D"></div></section>
+
+    <section><h2 id="cat-e" data-short="E · Counters & parity"><span class="secnum">E</span>Counter &amp; parity patterns</h2>
+      <p class="muted">The value comes from a running counter or from even/odd (<code>% 2</code>).</p>
+      <div class="plist" data-group="patterns:E" data-prefix="E"></div></section>
+
+    <section><h2 id="cat-f" data-short="F · Pyramids"><span class="secnum">F</span>Pyramids</h2>
+      <p class="muted">Centred rows with odd widths <code>2·row + 1</code>, or the “star + space” trick.</p>
+      <div class="plist" data-group="patterns:F" data-prefix="F"></div></section>
+
+    <section><h2 id="cat-g" data-short="G · Diamonds & mirrors"><span class="secnum">G</span>Diamonds, hourglass, butterfly &amp; mirrors</h2>
+      <p class="muted">Mirror method: two halves, or one loop whose formula changes at the middle row.</p>
+      <div class="plist" data-group="patterns:G" data-prefix="G"></div></section>
+
+    <section><h2 id="cat-h" data-short="H · Hollow shapes"><span class="secnum">H</span>Hollow shapes</h2>
+      <p class="muted">Loop over the solid shape and print a star only on its border.</p>
+      <div class="plist" data-group="patterns:H" data-prefix="H"></div></section>
+
+    <section><h2 id="cat-i" data-short="I · Letter shapes"><span class="secnum">I</span>Letter shapes (grid method)</h2>
+      <p class="muted">A bounding box and one condition per stroke of the letter.</p>
+      <div class="plist" data-group="patterns:I" data-prefix="I"></div></section>
+
+    <section><h2 id="cat-j" data-short="J · Mixed & hard"><span class="secnum">J</span>Mixed &amp; hard</h2>
+      <p class="muted">Two or three methods at once, plus <code>abs()</code>, <code>min()</code> of distances, binomials, and a 2D array.</p>
+      <div class="plist" data-group="patterns:J" data-prefix="J"></div></section>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=4"></script>
+<script src="assets/js/site.js?v=4"></script>
+<script src="assets/js/viz.js?v=4"></script>
+<script src="assets/data/patterns.js?v=4"></script>
+</body>
+</html>
