@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sequences & Series — C / C++ Notes</title>
+<meta name="description" content="Sequence and series loop problems in C: sums, progressions, alternating and fractional series, recurrences and process sequences, traced line by line.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=5">
+</head>
+<body>
+<div class="wrap layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <span class="badge">Step 1 · Loops, part 2 · Sequences &amp; series</span>
+    <h1>Sequences &amp; series</h1>
+    <p class="lead">“Print the first n terms”, “find the sum of the series”, “return the n-th term”. All of these are one loop plus <b>a rule for the next term</b>. This page covers the 4 ways that rule appears. Every problem has a <b>Sequence</b> tab in its visualiser that tabulates and charts each term as the loop builds it.</p>
+
+    <h2 id="how"><span class="secnum">★</span>How to attack a sequence problem</h2>
+    <div class="callout tip"><div class="callout-title">The routine</div>
+      <ol>
+        <li><b>Write the first 4–5 terms by hand</b> and number them (i = 1, 2, 3 …).</li>
+        <li><b>Find the rule</b>, using one of the four kinds below. If none is obvious, write down the <b>differences</b> or <b>ratios</b> between neighbouring terms.</li>
+        <li><b>Pick the loop</b>: <code>for</code> if you know how many terms, <code>while</code> if you stop on a condition (“until it reaches 1”).</li>
+        <li><b>Pick the types</b>: fractions → <code>double</code> and <code>1.0 / i</code>. Big products or powers → <code>long long</code>.</li>
+        <li><b>Check</b> against a closed formula when one exists (sum of 1…n, n², AP/GP sums).</li>
+      </ol>
+    </div>
+    <table class="tbl"><tr><th>kind of rule</th><th>example</th><th>code shape</th><th>section</th></tr>
+      <tr><td>term from <code>i</code> (formula)</td><td>1², 2², 3² · 1, 3, 5</td><td><code>term = f(i)</code></td><td><a href="#p-a">A</a></td></tr>
+      <tr><td>term from the previous term</td><td>AP, GP, 1, 11, 111, xⁱ/i!</td><td><code>term = g(term)</code></td><td><a href="#p-c">C</a>, <a href="#p-b">B</a></td></tr>
+      <tr><td>term from the previous <b>two or three</b></td><td>Fibonacci, Tribonacci, stairs</td><td>sliding window <code>a, b → b, a+b</code></td><td><a href="#p-d">D</a></td></tr>
+      <tr><td>term from a condition on the current term</td><td>Collatz, happy number</td><td><code>while (not done) { if … }</code></td><td><a href="#p-e">E</a></td></tr>
+    </table>
+
+    <h2 id="direct"><span class="secnum">1</span>Term from i vs term from the previous term</h2>
+    <p>Both programs below build a sum. In the first, each term is computed fresh from <code>i</code>. In the second, the term variable is declared outside the loop, so it <b>remembers</b> the previous term and is updated from it. The second way is often the only practical one (1, 11, 111 …) and usually the faster one (factorials).</p>
+    <div data-example="ex-seq-direct"></div>
+    <div data-example="ex-seq-carry"></div>
+
+    <h2 id="sign"><span class="secnum">2</span>Alternating signs</h2>
+    <div data-example="ex-seq-sign"></div>
+
+    <h2 id="traps"><span class="secnum">3</span>Traps in series problems</h2>
+    <div class="grid2">
+      <div class="callout trap"><div class="callout-title">Integer division</div><code>1 / i</code> is 0 for every i ≥ 2. Write <code>1.0 / i</code>, or cast with <code>(double)</code>. <code>sum</code> must be a <code>double</code> as well.</div>
+      <div class="callout trap"><div class="callout-title">Overflow</div>Factorials pass the <code>int</code> limit at 13! and <code>long long</code> at 21!. Powers and products grow fast, so use <code>long long</code> and check the limits.</div>
+      <div class="callout trap"><div class="callout-title">Off-by-one in the count</div>“n terms” starting at i = 1 means <code>i &lt;= n</code>. Starting at i = 0 means <code>i &lt; n</code>. Check the count on the Sequence tab.</div>
+      <div class="callout trap"><div class="callout-title">Recomputing from scratch</div>A nested loop that recomputes i! or xⁱ for every term is O(n²). Carry the previous term and it becomes O(n).</div>
+    </div>
+
+    <section><h2 id="p-a" data-short="A · Sums & progressions"><span class="secnum">A</span>Sums &amp; progressions</h2>
+      <p class="muted">Each term comes from i, or from a constant step (AP) or ratio (GP).</p>
+      <div class="plist" data-group="seq:A" data-prefix="A"></div></section>
+    <section><h2 id="p-b" data-short="B · Alternating & fractional"><span class="secnum">B</span>Alternating &amp; fractional series</h2>
+      <p class="muted">Sign flips, <code>double</code> arithmetic, and carrying a term with a factorial in it.</p>
+      <div class="plist" data-group="seq:B" data-prefix="B"></div></section>
+    <section><h2 id="p-c" data-short="C · Term-building"><span class="secnum">C</span>Building each term from the previous one</h2>
+      <p class="muted">The term variable lives outside the loop and is updated every pass.</p>
+      <div class="plist" data-group="seq:C" data-prefix="C"></div></section>
+    <section><h2 id="p-d" data-short="D · Recurrences"><span class="secnum">D</span>Recurrences &amp; simulations</h2>
+      <p class="muted">The next term depends on the last two or three terms, or on a position and a direction.</p>
+      <div class="plist" data-group="seq:D" data-prefix="D"></div></section>
+    <section><h2 id="p-e" data-short="E · Run-until sequences"><span class="secnum">E</span>Run-until sequences</h2>
+      <p class="muted">Keep applying a rule with <code>while</code> until a condition holds. Detect cycles with tortoise and hare.</p>
+      <div class="plist" data-group="seq:E" data-prefix="E"></div></section>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=5"></script>
+<script src="assets/js/site.js?v=5"></script>
+<script src="assets/js/viz.js?v=5"></script>
+<script src="assets/data/sequences.js?v=5"></script>
+</body>
+</html>

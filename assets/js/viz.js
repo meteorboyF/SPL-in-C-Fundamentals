@@ -62,6 +62,7 @@
         </div>
       </div>
       <div class="viz-tabs">
+        ${def.watch ? '<button data-t="seq">Sequence</button>' : ''}
         ${isGrid ? '<button data-t="grid">Pattern grid</button><button data-t="rows">Row analysis</button>' : ''}
         <button data-t="trace">Trace table</button>
         <button data-t="none">Hide</button>
@@ -79,7 +80,7 @@
     codeEl.innerHTML = pc.lines.map((l, i) => '<div class="row" data-l="' + (i + 1) + '"><span class="n">' + (i + 1) + '</span><span class="c">' + (CN.highlight(l.code) || ' ') + '</span></div>').join('');
     const rows = [...codeEl.children];
 
-    let res, cur = 0, timer = null, tab = isGrid ? 'grid' : 'trace', quiz = false;
+    let res, cur = 0, timer = null, tab = def.watch ? 'seq' : isGrid ? 'grid' : 'trace', quiz = false;
     let gridLines = [], traceCols = [];
 
     function load() {
@@ -95,6 +96,7 @@
       res.steps.forEach(s => { const f = s.frames[s.frames.length - 1]; if (f) f.vars.forEach(v => { if (!seen.has(v.name)) seen.set(v.name, seen.size); }); });
       traceCols = [...seen.keys()];
       buildTraceTable();
+      buildSeq();
       render();
     }
 
@@ -136,6 +138,7 @@
       if (tab === 'grid') renderGrid(s, prev);
       else if (tab === 'trace') syncTrace();
       else if (tab === 'rows') renderRows(s);
+      else if (tab === 'seq') renderSeq();
       el.querySelectorAll('.viz-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
       tabEl.style.display = tab === 'none' ? 'none' : '';
     }
@@ -196,6 +199,40 @@
       }
       h += '</div>';
       tabEl.innerHTML = h;
+    }
+
+    // ---------- sequence table: one row per finished iteration of the watched index variable
+    let seqRows = [];
+    function buildSeq() {
+      seqRows = [];
+      if (!def.watch) return;
+      // def.at = text of the line that finishes one term; a row is recorded every time it runs
+      const ats = new Set([].concat(def.at || []).map(a => pc.lines.findIndex(l => l.code.includes(a)) + 1));
+      res.steps.forEach((s, i) => {
+        if (!ats.has(s.l) || s.kind === 'false' || s.kind === 'true') return;
+        const f = s.frames[s.frames.length - 1]; const m = {};
+        if (f) f.vars.forEach(v => { m[v.name] = v.val; });
+        seqRows.push({ i, m });
+      });
+    }
+    function renderSeq() {
+      const W = def.watch, bar = W[1];
+      const num = x => { const v = parseFloat(String(x).replace(/^'|'$/g, '')); return isFinite(v) ? v : 0; };
+      const max = Math.max(1e-9, ...seqRows.map(r => Math.abs(num(r.m[bar]))));
+      let h = '<p class="small muted" style="margin-top:0">One row each time line <b>' + [].concat(def.at || []).map(a => pc.lines.findIndex(l => l.code.includes(a)) + 1).join(' / ') + '</b> runs (values right after it). The bar shows <code>' + esc(bar) + '</code>: watch how it changes from one row to the next.</p>';
+      h += '<table class="ttable seqt"><thead><tr><th>#</th>' + W.map(w => '<th>' + esc(w) + '</th>').join('') + '<th style="width:40%">' + esc(bar) + '</th></tr></thead><tbody>';
+      seqRows.forEach((r, k) => {
+        const v = num(r.m[bar]);
+        const w = Math.max(1, Math.round(Math.abs(v) / max * 100));
+        h += '<tr data-i="' + r.i + '" class="' + (r.i > cur ? 'fut' : '') + '"><td>' + (k + 1) + '</td>' + W.map(x => '<td>' + esc(r.m[x] === undefined ? '' : r.m[x]) + '</td>').join('') +
+          '<td style="text-align:left"><span class="sbar' + (v < 0 ? ' neg' : '') + '" style="width:' + w + '%"></span></td></tr>';
+      });
+      h += '</tbody></table>';
+      if (!seqRows.length) h = '<p class="muted">No iterations yet.</p>';
+      tabEl.innerHTML = h;
+      let best = null;
+      tabEl.querySelectorAll('tr[data-i]').forEach(tr => { tr.addEventListener('click', () => { stop(); cur = +tr.dataset.i; render(); }); if (+tr.dataset.i <= cur) best = tr; });
+      if (best) best.classList.add('cur');
     }
 
     // ---------- row analysis: count spaces & characters in each finished line

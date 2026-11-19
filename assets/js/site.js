@@ -16,6 +16,7 @@
     { href: 'index.html', label: 'Home' },
     { href: 'basics.html', label: '1 · C Basics' },
     { href: 'loops.html', label: '2 · Loops' },
+    { href: 'sequences.html', label: '2b · Sequences' },
     { href: 'patterns.html', label: '3 · Patterns' },
     { href: '#', label: '4 · Maths', soon: true },
     { href: '#', label: '5 · Recursion', soon: true },

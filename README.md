@@ -11,6 +11,7 @@ trace table, and your own input).
 |---|---|
 | `basics.html` | program structure, types, I/O, operators, if/else, switch, functions, C++ I/O + problems |
 | `loops.html` | for / while / do-while, break/continue, nested loops + digit, divisor, prime, GCD problems |
+| `sequences.html` | sums, AP/GP, alternating & fractional series, recurrences, run-until sequences (25 problems) |
 | `patterns.html` | 3 methods and 52 patterns in 10 categories, from squares to the spiral matrix |
 
 The original pattern programs (`Patterns/*.c`) live on the [`legacy`](../../tree/legacy) branch.
