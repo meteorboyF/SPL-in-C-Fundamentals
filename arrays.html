@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrays — C / C++ Notes</title>
+<meta name="description" content="Arrays in C and C++: 1D, 2D, 3D and K-dimensional arrays, vectors, hashing, two pointers, prefix sums, Kadane, matrices — every Striver A2Z array problem visualised.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=10">
+</head>
+<body>
+<div class="wrap layout">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <span class="badge">Step 3 · Arrays · Easy → Medium → Hard + matrices &amp; K-dimensional arrays</span>
+    <h1>Arrays</h1>
+    <p class="lead">An array is a row of boxes in memory, all of the same type, numbered from 0. Almost every LeetCode problem is about arrays. Each visualiser here has an <b>Arrays</b> tab that draws the arrays with large cells:</p>
+    <ul class="lead" style="margin-top:0">
+      <li>index variables (<code>i</code>, <code>l</code>, <code>r</code>, <code>low</code>, <code>high</code> …) are drawn as <b>pointers</b> under the cell they point to, and the range between them is shaded;</li>
+      <li>cells are <b>blue</b> when read and <b>yellow</b> when written;</li>
+      <li>2D arrays get a <b>row/column crosshair</b>, 3D and higher get one <b>slice</b> per layer;</li>
+      <li>a <b>bar chart</b> mode and a <b>memory layout</b> view with the address formula;</li>
+      <li>maps and sets are drawn as tables and chips.</li>
+    </ul>
+
+    <h2 id="basics"><span class="secnum">1</span>Arrays in C</h2>
+    <table class="tbl"><tr><th>code</th><th>meaning</th></tr>
+      <tr><td><code>int a[5];</code></td><td>5 ints with garbage values</td></tr>
+      <tr><td><code>int a[5] = {1, 2};</code></td><td>1, 2, 0, 0, 0 (the rest become 0)</td></tr>
+      <tr><td><code>int a[] = {4, 8, 15};</code></td><td>the size (3) is counted for you</td></tr>
+      <tr><td><code>a[i]</code></td><td>element i; valid indices are <b>0 … n−1</b></td></tr>
+      <tr><td><code>sizeof(a) / sizeof(a[0])</code></td><td>number of elements (only where <code>a</code> was declared)</td></tr>
+    </table>
+    <div data-example="ex-arr-basics"></div>
+    <div data-example="ex-arr-input"></div>
+    <div class="callout trap"><div class="callout-title">Out of bounds</div>C does <b>not</b> check indices. <code>a[5]</code> on a 5-element array reads or writes whatever memory comes next: garbage values, crashes, or bugs that appear randomly. The visualiser stops with an error instead, so you can see where it happens.</div>
+
+    <h2 id="functions"><span class="secnum">2</span>Arrays and functions</h2>
+    <div data-example="ex-arr-func"></div>
+
+    <h2 id="vector"><span class="secnum">3</span>C++ vector (what LeetCode uses)</h2>
+    <table class="tbl"><tr><th>operation</th><th>code</th><th>cost</th></tr>
+      <tr><td>create</td><td><code>vector&lt;int&gt; v;</code> · <code>v(n)</code> · <code>v(n, x)</code> · <code>v = {1, 2, 3}</code></td><td>O(n)</td></tr>
+      <tr><td>size / access</td><td><code>v.size()</code> · <code>v[i]</code> · <code>v.back()</code> · <code>v.front()</code></td><td>O(1)</td></tr>
+      <tr><td>add / remove at end</td><td><code>v.push_back(x)</code> · <code>v.pop_back()</code></td><td>O(1)</td></tr>
+      <tr><td>sort / reverse</td><td><code>sort(v.begin(), v.end())</code> · <code>reverse(…)</code></td><td>O(n log n) / O(n)</td></tr>
+      <tr><td>2D</td><td><code>vector&lt;vector&lt;int&gt;&gt; g(r, vector&lt;int&gt;(c, 0));</code></td><td>O(r·c)</td></tr>
+      <tr><td>pass to a function</td><td><code>void f(vector&lt;int&gt;&amp; v)</code>. Without <code>&amp;</code> the whole vector is copied</td><td>—</td></tr>
+    </table>
+    <div data-example="ex-vector"></div>
+
+    <h2 id="2d"><span class="secnum">4</span>2D arrays</h2>
+    <div data-example="ex-2d"></div>
+
+    <h2 id="kd"><span class="secnum">5</span>3D and K-dimensional arrays</h2>
+    <p>An array with K indices, <code>a[d1][d2]…[dK]</code>, is still one straight block of memory. The <b>last</b> index changes fastest (row-major order). The address of an element is <code>base + (i1·s1 + i2·s2 + … + iK·sK) × size</code>, where each <b>stride</b> s is the product of all the dimension sizes after it.</p>
+    <div data-example="ex-3d"></div>
+
+    <h2 id="techniques"><span class="secnum">6</span>The techniques you will use</h2>
+    <table class="tbl"><tr><th>technique</th><th>signal in the problem</th><th>see</th></tr>
+      <tr><td>single scan with a running value</td><td>max, min, count, “best so far”</td><td><a href="#ar-largest">Largest</a>, <a href="#ar-stock">Stock</a></td></tr>
+      <tr><td>two pointers (same direction)</td><td>“in place”, sorted input, remove / move elements</td><td><a href="#ar-rm-dup">Remove duplicates</a>, <a href="#ar-zeros">Move zeroes</a></td></tr>
+      <tr><td>two pointers (from both ends)</td><td>reverse, pair with a sum in a sorted array</td><td><a href="#ar-reverse">Reverse</a>, <a href="#ar-3sum">3Sum</a></td></tr>
+      <tr><td>sliding window</td><td>contiguous subarray, all elements positive</td><td><a href="#ar-longest-k-pos">Longest sum K</a></td></tr>
+      <tr><td>prefix sum + hash map</td><td>subarray sum = K with negatives, count subarrays</td><td><a href="#ar-subarray-k">Subarray sum K</a></td></tr>
+      <tr><td>hashing</td><td>“have I seen this before?”, frequency</td><td><a href="#ar-two-sum">Two Sum</a></td></tr>
+      <tr><td>Kadane</td><td>maximum subarray sum</td><td><a href="#ar-kadane">Kadane</a></td></tr>
+      <tr><td>Moore voting</td><td>element appearing &gt; n/2 (or n/3) times</td><td><a href="#ar-majority">Majority</a></td></tr>
+      <tr><td>sort first</td><td>intervals, triplets, duplicates</td><td><a href="#ar-merge-int">Merge intervals</a></td></tr>
+    </table>
+
+    <section><h2 id="p-a" data-short="A · Easy"><span class="secnum">A</span>Easy</h2>
+      <p class="muted">Single scans, two pointers, and the first hashing and prefix-sum ideas.</p>
+      <div class="plist" data-group="arr:A" data-prefix="A"></div></section>
+    <section><h2 id="p-b" data-short="B · Medium"><span class="secnum">B</span>Medium</h2>
+      <p class="muted">Hash maps, Dutch flag, Moore, Kadane, permutations, prefix sums.</p>
+      <div class="plist" data-group="arr:B" data-prefix="B"></div></section>
+    <section><h2 id="p-c" data-short="C · Hard"><span class="secnum">C</span>Hard</h2>
+      <p class="muted">Sorting with two pointers, XOR prefixes, merging, and merge-sort counting.</p>
+      <div class="plist" data-group="arr:C" data-prefix="C"></div></section>
+    <section><h2 id="p-d" data-short="D · 2D matrices"><span class="secnum">D</span>2D matrices</h2>
+      <p class="muted">Row/column traversal, in-place transforms, spirals and index mapping. Watch the crosshair.</p>
+      <div class="plist" data-group="arr:D" data-prefix="D"></div></section>
+    <section><h2 id="p-e" data-short="E · 3D & K arrays"><span class="secnum">E</span>3D arrays &amp; K arrays</h2>
+      <p class="muted">K-dimensional arrays, K matrices stored as one 3D array, and problems over K separate arrays.</p>
+      <div class="plist" data-group="arr:E" data-prefix="E"></div></section>
+  </main>
+</div>
+<script src="assets/js/cinterp.js?v=10"></script>
+<script src="assets/js/site.js?v=10"></script>
+<script src="assets/js/viz.js?v=10"></script>
+<script src="assets/data/arrays-easy.js?v=10"></script>
+<script src="assets/data/arrays-medium.js?v=10"></script>
+<script src="assets/data/arrays-matrix.js?v=10"></script>
+</body>
+</html>

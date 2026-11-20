@@ -9,15 +9,17 @@
   const esc = CN.esc;
 
   function arrHTML(v) {
-    if (Array.isArray(v.arr[0])) {
-      const hl = new Set((v.hl || []).map(p => p.join(',')));
-      const cols = v.arr[0].length;
+    if (v.map || v.set) return '<span class="vv">' + esc(v.val) + '</span>';
+    const wr = new Set((v.wr || []).map(p => String(p)));
+    if (v.dims >= 3 || (Array.isArray(v.arr[0]) && Array.isArray(v.arr[0][0]))) return '<span class="vv small">' + v.dims + '-D · see the Arrays tab</span>';
+    if (Array.isArray(v.arr[0]) || (v.dims === 2)) {
+      const cols = Math.max(0, ...v.arr.map(r => r.length));
       let h = '<table class="mat"><tr><th></th>' + Array.from({ length: cols }, (_, j) => '<th>' + j + '</th>').join('') + '</tr>';
-      v.arr.forEach((row, i) => { h += '<tr><th>' + i + '</th>' + row.map((x, j) => '<td class="' + (hl.has(i + ',' + j) ? 'hl' : '') + '">' + fmt(x, v.base) + '</td>').join('') + '</tr>'; });
+      v.arr.forEach((row, i) => { h += '<tr><th>' + i + '</th>' + row.map((x, j) => '<td class="' + (wr.has(i + ',' + j) ? 'hl' : '') + '">' + fmt(x, v.base) + '</td>').join('') + '</tr>'; });
       return h + '</table>';
     }
-    const hl = new Set((v.hl || []).map(p => String(p[0])));
-    return '<span class="arr">' + v.arr.map((x, i) => '<span class="cell' + (hl.has(String(i)) ? ' hl' : '') + '"><i>' + i + '</i><b>' + fmt(x, v.base) + '</b></span>').join('') + '</span>';
+    if (v.arr.length > 24) return '<span class="vv small">size ' + v.arr.length + ' · see the Arrays tab</span>';
+    return '<span class="arr">' + v.arr.map((x, i) => '<span class="cell' + (wr.has(String(i)) ? ' hl' : '') + '"><i>' + i + '</i><b>' + fmt(x, v.base) + '</b></span>').join('') + '</span>';
   }
   function fmt(x, base) {
     if (x === undefined) return '?';
@@ -65,6 +67,7 @@
         ${def.watch ? '<button data-t="seq">Sequence</button>' : ''}
         ${def.decisions ? '<button data-t="dec">Decisions</button>' : ''}
         ${isGrid ? '<button data-t="grid">Pattern grid</button><button data-t="rows">Row analysis</button>' : ''}
+        <button data-t="arr" class="arrbtn" style="display:none">Arrays</button>
         <button data-t="trace">Trace table</button>
         <button data-t="none">Hide</button>
       </div>
@@ -86,6 +89,7 @@
     codeEl.innerHTML = pc.lines.map((l, i) => '<div class="row" data-l="' + (i + 1) + '"><span class="n">' + (i + 1) + '</span><span class="c">' + (CN.highlight(l.code) || ' ') + '</span></div>').join('');
     const rows = [...codeEl.children];
 
+    let hasArrays = false, firstLoad = true, bars = !!def.bars, memView = false;
     let res, cur = 0, timer = null, tab = def.decisions ? 'dec' : def.watch ? 'seq' : isGrid ? 'grid' : 'trace', quiz = false;
     let gridLines = [], traceCols = [];
 
@@ -103,6 +107,9 @@
       traceCols = [...seen.keys()];
       buildTraceTable();
       buildSeq();
+      hasArrays = res.steps.some(st => st.frames.some(f => f.vars.some(v => v.arr || v.map || v.set)));
+      $('.arrbtn').style.display = hasArrays ? '' : 'none';
+      if (firstLoad) { firstLoad = false; if (hasArrays && !def.decisions && !def.watch && !isGrid) tab = 'arr'; }
       render();
     }
 
@@ -146,6 +153,7 @@
       else if (tab === 'rows') renderRows(s);
       else if (tab === 'seq') renderSeq();
       else if (tab === 'dec') renderDec();
+      else if (tab === 'arr') renderArrays(s, prev);
       el.querySelectorAll('.viz-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
       tabEl.style.display = tab === 'none' ? 'none' : '';
     }
@@ -240,6 +248,150 @@
       let best = null;
       tabEl.querySelectorAll('tr[data-i]').forEach(tr => { tr.addEventListener('click', () => { stop(); cur = +tr.dataset.i; render(); }); if (+tr.dataset.i <= cur) best = tr; });
       if (best) best.classList.add('cur');
+    }
+
+    // ---------- arrays: big view of every array / vector / map / set with index pointers
+    const PCOL = ['#4f46e5', '#0e9f6e', '#e8590c', '#d6336c', '#0b7285', '#9c36b5', '#c08a00', '#1971c2'];
+    const pcolor = name => PCOL[[...name].reduce((h, c) => h * 31 + c.charCodeAt(0), 7) % PCOL.length];
+    const RANGES = [['low', 'high'], ['lo', 'hi'], ['left', 'right'], ['l', 'r'], ['start', 'end'], ['s', 'e']];
+    const SIZE = { int: 4, long: 8, double: 8, char: 1, bool: 1 };
+    function pathKey(p) { return Array.isArray(p) ? p.join(',') : String(p); }
+    function hitOf(paths, P) { // 2 = this exact cell, 1 = a whole row/slice containing it
+      if (!paths) return 0;
+      let r = 0;
+      for (const q of paths) {
+        if (!Array.isArray(q)) continue;
+        if (q.length === P.length && q.every((x, i) => x === P[i])) return 2;
+        if (q.length < P.length && q.every((x, i) => x === P[i])) r = 1;
+      }
+      return r;
+    }
+    function renderArrays(s) {
+      const items = [], byKey = {};
+      s.frames.forEach((f, fi) => f.vars.forEach(v => {
+        if (!(v.arr || v.map || v.set)) return;
+        let it = byKey[v.key];
+        if (!it) { it = byKey[v.key] = { v, names: [], frames: [] }; items.push(it); }
+        if (!v.refKey) it.v = Object.assign({}, it.v, { name: v.name, type: v.type });
+        it.names.push(v.name + (v.refKey ? ' in ' + f.name : ''));
+        it.frames.push(fi);
+      }));
+      if (!items.length) { tabEl.innerHTML = '<p class="muted">No arrays exist at this step.</p>'; return; }
+      const scalarIn = fis => { // pointer variables visible to this array (top frame first)
+        const m = {};
+        const order = [s.frames.length - 1].concat(fis.slice().reverse());
+        order.forEach(fi => { const f = s.frames[fi]; if (f) f.vars.forEach(v => { if (!v.arr && !v.map && !v.set && m[v.name] === undefined && /^-?\d+$/.test(v.val)) m[v.name] = +v.val; }); });
+        return m;
+      };
+      let h = '<div class="av-tools"><label><input type="checkbox" class="t-bars"' + (bars ? ' checked' : '') + '> bar chart</label><label><input type="checkbox" class="t-mem"' + (memView ? ' checked' : '') + '> memory layout</label><span class="av-legend"><span class="lg rd">read</span><span class="lg wr">written</span><span class="lg inr">range</span></span></div>';
+      items.forEach(it => { h += containerHTML(it, scalarIn(it.frames)); });
+      tabEl.innerHTML = h;
+      tabEl.querySelector('.t-bars').onchange = e => { bars = e.target.checked; render(); };
+      tabEl.querySelector('.t-mem').onchange = e => { memView = e.target.checked; render(); };
+    }
+    function ptrTags(list) { return list.map(p => '<span class="ptag" style="--pc:' + pcolor(p) + '">' + esc(p) + '</span>').join(''); }
+    function containerHTML(it, sc) {
+      const v = it.v;
+      let shape = '';
+      if (v.arr && !v.vec) { let x = v.arr; while (Array.isArray(x)) { shape += '[' + x.length + ']'; x = x[0]; } }
+      const head = '<div class="av-head"><b>' + esc(v.name) + '</b><span class="muted">' + esc(shape ? v.type.replace(/(\[\])+$/, '') + shape : v.type) + (v.arr ? (v.vec ? ' · size ' + v.arr.length : '')  : v.map ? ' · ' + v.map.length + ' keys' : ' · ' + v.set.length + ' items') + '</span>' + (it.names.length > 1 ? '<span class="av-alias">also seen as ' + esc(it.names.slice(1).join(', ')) + '</span>' : '') + '</div>';
+      if (v.map) {
+        const wr = new Set((v.wr || []).map(String)), rd = new Set((v.rd || []).map(String));
+        return '<div class="av">' + head + (v.map.length ? '<table class="amap"><tr><th>key</th><th>value</th></tr>' + v.map.map(([k, x]) => '<tr class="' + (wr.has(String(k)) ? 'wr' : rd.has(String(k)) ? 'rd' : '') + '"><td>' + fmt(k, v.kb) + '</td><td>' + fmt(x, v.vb) + '</td></tr>').join('') + '</table>' : '<p class="muted small">empty</p>') + '</div>';
+      }
+      if (v.set) {
+        const wr = new Set((v.wr || []).map(String)), rd = new Set((v.rd || []).map(String));
+        return '<div class="av">' + head + '<div class="aset">' + (v.set.length ? v.set.map(x => '<span class="' + (wr.has(String(x)) ? 'wr' : rd.has(String(x)) ? 'rd' : '') + '">' + fmt(x, v.vb) + '</span>').join('') : '<span class="muted small">empty</span>') + '</div></div>';
+      }
+      const dims = Math.max(1, v.dims || 1);
+      const ptrs = d => (v.idxv && v.idxv[d] || []).concat(d === 0 && def.ptrs ? def.ptrs : []).filter((n, i, a) => a.indexOf(n) === i && sc[n] !== undefined).map(n => ({ n, i: sc[n] }));
+      let body = '';
+      if (dims === 1) body = oneD(v, v.arr, [], ptrs(0), sc);
+      else body = nD(v, v.arr, [], 0, ptrs, dims);
+      if (memView) body += memHTML(v, dims);
+      return '<div class="av">' + head + body + '</div>';
+    }
+    function oneD(v, arr, prefix, P, sc) {
+      const N = arr.length;
+      const W = N > 24 ? 30 : N > 14 ? 38 : 46;
+      const lo = Math.min(0, ...P.map(p => p.i)), hi = Math.max(N - 1, ...P.map(p => p.i));
+      const start = Math.max(lo, -1), end = Math.min(hi, N);
+      const cols = end - start + 1;
+      let range = null;
+      const pairs = def.range ? [def.range] : RANGES;
+      for (const [a, b] of pairs) if (sc[a] !== undefined && sc[b] !== undefined && P.some(p => p.n === a) && P.some(p => p.n === b)) { range = [sc[a], sc[b]]; break; }
+      const nums = arr.map(x => typeof x === 'number' ? x : 0);
+      const mx = Math.max(1, ...nums.map(Math.abs));
+      let h = '<div class="av-scroll"><div class="av-grid" style="grid-template-columns:repeat(' + cols + ',' + W + 'px)">';
+      if (bars) for (let i = start; i <= end; i++) {
+        const x = nums[i];
+        h += '<span class="av-bar">' + (i >= 0 && i < N ? '<i class="' + (x < 0 ? 'neg' : '') + (hitOf(v.wr, prefix.concat([i])) ? ' wr' : hitOf(v.rd, prefix.concat([i])) ? ' rd' : '') + '" style="height:' + Math.max(2, Math.round(Math.abs(x) / mx * 86)) + 'px"></i>' : '') + '</span>';
+      }
+      for (let i = start; i <= end; i++) h += '<span class="av-i">' + (i >= 0 && i < N ? i : '') + '</span>';
+      for (let i = start; i <= end; i++) {
+        if (i < 0 || i >= N) { h += '<span class="av-c ghost">' + (i < 0 ? '−1' : 'end') + '</span>'; continue; }
+        const P2 = prefix.concat([i]);
+        const w = hitOf(v.wr, P2), r = hitOf(v.rd, P2);
+        const inr = range && i >= Math.min(range[0], range[1]) && i <= Math.max(range[0], range[1]) && range[0] <= range[1];
+        h += '<span class="av-c' + (w ? ' wr' : r ? ' rd' : '') + (inr ? ' inr' : '') + '">' + fmt(arr[i], v.base) + '</span>';
+      }
+      for (let i = start; i <= end; i++) {
+        const here = P.filter(p => p.i === i).map(p => p.n);
+        h += '<span class="av-p">' + (here.length ? '<span class="arrow">▲</span>' + ptrTags(here) : '') + '</span>';
+      }
+      h += '</div></div>';
+      return h;
+    }
+    function matrix(v, a, prefix, rp, cp) {
+      const cols = Math.max(0, ...a.map(r => Array.isArray(r) ? r.length : 0));
+      const rowHit = new Set(rp.map(p => p.i)), colHit = new Set(cp.map(p => p.i));
+      let h = '<div class="av-scroll"><table class="am"><tr><th class="corner"></th>';
+      for (let j = 0; j < cols; j++) { const t = cp.filter(p => p.i === j).map(p => p.n); h += '<th class="ch' + (colHit.has(j) ? ' hit' : '') + '">' + j + (t.length ? '<div>' + ptrTags(t) + '</div>' : '') + '</th>'; }
+      h += '</tr>';
+      a.forEach((row, i) => {
+        const t = rp.filter(p => p.i === i).map(p => p.n);
+        h += '<tr><th class="rh' + (rowHit.has(i) ? ' hit' : '') + '">' + (t.length ? ptrTags(t) + ' ' : '') + i + '</th>';
+        for (let j = 0; j < cols; j++) {
+          if (!Array.isArray(row) || j >= row.length) { h += '<td class="empty"></td>'; continue; }
+          const P2 = prefix.concat([i, j]);
+          const w = hitOf(v.wr, P2), r = hitOf(v.rd, P2);
+          const cross = (rowHit.has(i) ? 1 : 0) + (colHit.has(j) ? 1 : 0);
+          h += '<td class="' + (w ? 'wr' : r ? 'rd' : '') + (cross === 2 ? ' xhit' : cross ? ' xline' : '') + '">' + fmt(row[j], v.base) + '</td>';
+        }
+        h += '</tr>';
+      });
+      return h + '</table></div>';
+    }
+    function nD(v, a, prefix, d, ptrs, dims, active = true) {
+      if (dims - d === 2) return matrix(v, a, prefix, active ? ptrs(d) : [], active ? ptrs(d + 1) : []);
+      const lp = ptrs(d);
+      return '<div class="slices">' + a.map((sub, k) => {
+        const t = lp.filter(p => p.i === k).map(p => p.n);
+        const on = active && (!lp.length || t.length > 0);   // only the selected layer gets the crosshair
+        return '<div class="slice' + (t.length && active ? ' hit' : '') + '"><div class="slice-h">' + esc(v.name) + prefix.map(x => '[' + x + ']').join('') + '[' + k + ']' + (t.length ? ' ' + ptrTags(t) : '') + '</div>' + nD(v, sub, prefix.concat([k]), d + 1, ptrs, dims, on) + '</div>';
+      }).join('') + '</div>';
+    }
+    function memHTML(v, dims) {
+      const sz = SIZE[v.base] || 4, base = 1000;
+      if (v.vec && dims > 1) return '<p class="small muted mem-note">A <code>vector&lt;vector&lt;…&gt;&gt;</code> is <b>not</b> one block: every row is a separate vector somewhere on the heap, so there is no single address formula. Plain C arrays (<code>int a[R][C]</code>) are one contiguous block.</p>';
+      const shape = []; let x = v.arr; for (let d = 0; d < dims; d++) { shape.push(Array.isArray(x) ? x.length : 0); x = Array.isArray(x) ? x[0] : undefined; }
+      const stride = shape.map((_, d) => shape.slice(d + 1).reduce((a, b) => a * b, 1));
+      const flat = [];
+      (function walk(a, p) { a.forEach((y, i) => { if (Array.isArray(y)) walk(y, p.concat([i])); else flat.push([p.concat([i]), y]); }); })(v.arr, []);
+      const focus = (v.wr && v.wr.find(Array.isArray)) || (v.rd && v.rd.find(q => Array.isArray(q) && q.length === dims));
+      let h = '<div class="mem"><div class="mem-h">Memory (row-major): the elements sit one after another, ' + sz + ' bytes each, starting at address ' + base + '.</div><div class="av-scroll"><div class="mem-row">';
+      flat.forEach(([P, y]) => {
+        const off = P.reduce((s2, i, d) => s2 + i * stride[d], 0);
+        const on = focus && focus.length === P.length && focus.every((q, i) => q === P[i]);
+        h += '<div class="mcell' + (on ? ' on' : '') + (dims > 1 && P[P.length - 1] === 0 && off ? ' rowstart' : '') + '"><b>' + fmt(y, v.base) + '</b><i>' + P.map(i => '[' + i + ']').join('') + '</i><em>' + (base + off * sz) + '</em></div>';
+      });
+      h += '</div></div>';
+      if (focus && focus.length === dims) {
+        const off = focus.reduce((s2, i, d) => s2 + i * stride[d], 0);
+        const terms = focus.map((i, d) => stride[d] === 1 ? String(i) : i + '×' + stride[d]).join(' + ');
+        h += '<div class="mem-f">&amp;' + esc(v.name) + focus.map(i => '[' + i + ']').join('') + ' = ' + base + ' + (' + terms + ') × ' + sz + ' = ' + base + ' + ' + off * sz + ' = <b>' + (base + off * sz) + '</b>' + (dims > 1 ? ' <span class="muted">(stride of each index = number of elements one step of it skips: ' + stride.join(', ') + ')</span>' : '') + '</div>';
+      }
+      return h + '</div>';
     }
 
     // ---------- decisions: every if / switch check, in the order it happened

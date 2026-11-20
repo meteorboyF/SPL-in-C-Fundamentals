@@ -16,7 +16,8 @@
   const PUNCT = ['<<=', '>>=', '...', '->', '++', '--', '<<', '>>', '<=', '>=', '==', '!=', '&&', '||',
     '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '::',
     '+', '-', '*', '/', '%', '<', '>', '=', '!', '~', '&', '|', '^', '?', ':', ';', ',', '.', '(', ')', '[', ']', '{', '}'];
-  const TYPE_WORDS = new Set(['int', 'char', 'float', 'double', 'long', 'short', 'unsigned', 'signed', 'bool', 'void', 'const', 'static', 'auto']);
+  const TYPE_WORDS = new Set(['int', 'char', 'float', 'double', 'long', 'short', 'unsigned', 'signed', 'bool', 'void', 'const', 'static', 'auto', 'size_t']);
+  const TEMPLATES = new Set(['vector', 'map', 'unordered_map', 'set', 'unordered_set', 'pair', 'greater', 'less']);
   const ESC = { n: '\n', t: '\t', '0': '\0', '\\': '\\', "'": "'", '"': '"', r: '\r', a: '\x07', b: '\b' };
 
   function CError(msg, line) { const e = new Error(msg); e.cline = line; return e; }
@@ -103,13 +104,37 @@
     const expect = v => { if (!is(v)) throw CError('expected "' + v + '" but found "' + (peek().text || 'end of file') + '"', peek().line); return next(); };
     const isTypeStart = (o = 0) => {
       const t = peek(o);
-      return t && t.k === 'id' && (TYPE_WORDS.has(t.v) || t.v === 'string');
+      if (!t || t.k !== 'id') return false;
+      if (TEMPLATES.has(t.v)) { const n = peek(o + 1); return !!n && n.k === 'p' && n.v === '<'; }
+      return TYPE_WORDS.has(t.v) || t.v === 'string';
     };
+    function closeAngle() { // '>>' closes two template lists at once: split it
+      const t = peek();
+      if (t.k === 'p' && t.v === '>>') toks.splice(p, 1, Object.assign({}, t, { v: '>', text: '>' }), Object.assign({}, t, { v: '>', text: '>' }));
+      expect('>');
+    }
+    function parseTemplate(w) {
+      expect('<');
+      const args = [];
+      if (w !== 'greater' && w !== 'less') { do { args.push(parseType()); } while (accept(',')); }
+      else if (!is('>') && !is('>>')) args.push(parseType());
+      closeAngle();
+      const nm = w + '<' + args.map(a => a.name).join(', ') + '>';
+      if (w === 'vector') return { kind: 'vector', elem: args[0], dims: (args[0].kind === 'vector' ? args[0].dims : 0) + 1, base: args[0].kind === 'vector' ? args[0].base : args[0].base, name: nm };
+      if (w === 'map' || w === 'unordered_map') return { kind: 'map', ordered: w === 'map', key: args[0], val: args[1], base: args[1].base, name: nm };
+      if (w === 'set' || w === 'unordered_set') return { kind: 'set', ordered: w === 'set', elem: args[0], base: args[0].base, name: nm };
+      if (w === 'pair') return { kind: 'pair', a: args[0], b: args[1], base: 'pair', name: nm };
+      return { kind: 'cmp', desc: w === 'greater', base: 'cmp', name: nm };
+    }
 
     function parseType() {
       const words = [];
-      while (isTypeStart()) words.push(next().v);
+      while (isTypeStart()) {
+        if (TEMPLATES.has(peek().v)) { const t = parseTemplate(next().v); while (is('const')) next(); return t; }
+        words.push(next().v);
+      }
       let base = 'int';
+      if (words.includes('auto')) return { base: 'auto', name: 'auto' };
       if (words.includes('char')) base = 'char';
       else if (words.includes('double') || words.includes('float')) base = 'double';
       else if (words.includes('bool')) base = 'bool';
@@ -158,14 +183,20 @@
     function declRest(type, line) {
       const vars = [];
       do {
+        const isRef = accept('&');
         const name = next();
         if (name.k !== 'id') throw CError('expected a variable name', name.line);
         const dims = [];
         while (accept('[')) { dims.push(is(']') ? null : expr()); expect(']'); }
-        let init = null;
+        let init = null, ctor = null;
         if (accept('=')) init = is('{') ? initList() : assign();
-        else if (is('(') && !dims.length) { next(); init = expr(); expect(')'); }
-        vars.push({ name: name.v, dims, init });
+        else if (is('(') && !dims.length) {
+          next(); const args = [];
+          if (!is(')')) { do { args.push(assign()); } while (accept(',')); }
+          expect(')');
+          if (type.kind) ctor = args; else init = args[0];
+        } else if (is('{') && type.kind) init = initList();
+        vars.push({ name: name.v, dims, init, ctor, isRef });
       } while (accept(','));
       const end = expect(';').line;
       return { k: 'decl', type, vars, line, end };
@@ -219,6 +250,17 @@
       if (is('for')) {
         next(); expect('(');
         let init = null;
+        if (!is(';') && isTypeStart()) { // range-based for: for (int x : nums)
+          const save = p;
+          const ty = parseType(); const byRef = accept('&'); const nm = next();
+          if (is(':')) {
+            next();
+            const coll = expr();
+            const end = expect(')').line;
+            return { k: 'rfor', type: ty, byRef, name: nm.v, coll, body: statement(), line, end };
+          }
+          p = save;
+        }
         if (!is(';')) {
           if (isTypeStart()) init = declRest(parseType(), line);
           else { init = { k: 'expr', e: expr(), line }; expect(';'); }
@@ -325,7 +367,7 @@
           e = { k: 'call', f: e, args };
         }
         else if (is('++') || is('--')) { e = { k: 'post', op: next().v, a: e }; }
-        else if (is('.')) { next(); const m = next().v; e = { k: 'member', a: e, m }; }
+        else if (is('.') || is('->')) { next(); const m = next().v; e = { k: 'member', a: e, m }; }
         else break;
       }
       return e;
@@ -334,6 +376,14 @@
       const t = next();
       if (t.k === 'num') return { k: 'num', v: t.v, t: t.t, text: t.text };
       if (t.k === 'str') return { k: 'str', v: t.v, text: t.text };
+      if (t.k === 'p' && t.v === '{') { p--; return initList(); }
+      if (t.k === 'id' && TEMPLATES.has(t.v) && is('<')) { // vector<int>(n, 0), greater<int>()
+        p--;
+        const type = parseType();
+        const args = [];
+        if (accept('(')) { if (!is(')')) { do { args.push(assign()); } while (accept(',')); } expect(')'); }
+        return { k: 'ctor', type, args };
+      }
       if (t.k === 'id') {
         if (t.v === 'true' || t.v === 'false') return { k: 'num', v: t.v === 'true' ? 1 : 0, t: 'bool', text: t.v };
         if (t.v === 'std' && is('::')) { next(); return primary(); }
@@ -412,6 +462,9 @@
 
   function showVal(v, base) {
     if (v === undefined) return '?';
+    if (Array.isArray(v)) return '[' + v.map(x => showVal(x, base)).join(', ') + ']';
+    if (v instanceof Map) return '{' + [...v].map(([k, x]) => showVal(k, 'int') + ': ' + showVal(x, base)).join(', ') + '}';
+    if (v instanceof Set) return '{' + [...v].map(x => showVal(x, base)).join(', ') + '}';
     if (base === 'char') return v >= 32 && v < 127 ? "'" + String.fromCharCode(v) + "'" : String(v);
     if (base === 'bool') return v ? 'true' : 'false';
     if (base === 'double') return Number.isInteger(v) ? v.toFixed(1) : String(+v.toFixed(6));
@@ -456,21 +509,46 @@
     }
     function cellView(cell, name, fi) {
       const key = fi + ':' + name;
-      if (cell.ref) {
-        const target = cell.ref;
-        return { name, type: target.typeName + (target.dims ? '[]' : ''), order: cell.order, ref: target.owner + '.' + target.name, arr: target.dims ? copyArr(target.val) : null, val: target.dims ? null : showVal(target.val, target.base), base: target.base, changed: changed.has(key) || changed.has(target.key), hl: target.dims ? hlOf(target.key) : null };
+      const t = cell.ref || cell;
+      const view = { name, order: cell.order, base: t.base, key: t.key, changed: changed.has(key) || changed.has(t.key) };
+      if (cell.ref) { view.ref = t.owner + '.' + t.name; view.refKey = t.key; }
+      if (t.dims) {
+        view.type = t.vec ? t.typeName : t.typeName + '[]'.repeat(t.dims);
+        view.arr = deep(t.val); view.dims = t.dims; view.vec = !!t.vec;
+        view.rd = arrRd[t.key] ? arrRd[t.key].slice() : null;
+        view.wr = arrWr[t.key] ? arrWr[t.key].slice() : null;
+        view.idxv = (t.idxv || []).map(x => x ? [...x] : []);
+        view.val = null;
+      } else if (t.kind === 'map' || t.kind === 'set') {
+        let items = t.kind === 'map' ? [...t.val] : [...t.val];
+        if (t.ordered) items.sort((a, b) => cmpVal(t.kind === 'map' ? a[0] : a, t.kind === 'map' ? b[0] : b));
+        view.type = t.typeName; view[t.kind] = items; view.kb = t.kb; view.vb = t.base;
+        view.rd = arrRd[t.key] ? arrRd[t.key].slice() : null;
+        view.wr = arrWr[t.key] ? arrWr[t.key].slice() : null;
+        view.val = t.kind === 'map' ? '{' + items.map(([k, x]) => showVal(k, t.kb) + ':' + showVal(x, t.base)).join(', ') + '}' : '{' + items.map(x => showVal(x, t.base)).join(', ') + '}';
+      } else if (t.kind === 'pair') {
+        view.type = t.typeName; view.val = '(' + showVal(t.val[0], t.ab[0]) + ', ' + showVal(t.val[1], t.ab[1]) + ')';
+      } else if (t.kind === 'iter') {
+        view.type = 'iterator'; view.val = t.val.end ? 'end()' : (t.val.arr ? '→ [' + t.val.pos + ']' : '→ ' + showVal(t.val.key, 'int'));
+      } else {
+        view.type = t.typeName; view.val = showVal(t.val, t.base);
       }
-      return { name, type: cell.typeName + (cell.dims === 1 ? '[]' : cell.dims === 2 ? '[][]' : ''), order: cell.order, val: cell.dims ? null : showVal(cell.val, cell.base), arr: cell.dims ? copyArr(cell.val) : null, base: cell.base, changed: changed.has(key), hl: cell.dims ? hlOf(cell.key) : null };
+      return view;
     }
-    let arrHl = {};
-    function hlOf(key) { return arrHl[key] ? arrHl[key].slice() : null; }
-    function copyArr(a) { return a.map(x => Array.isArray(x) ? x.slice() : x); }
+    let arrRd = {}, arrWr = {};
+    function deep(a) { return Array.isArray(a) ? a.map(deep) : a; }
+    function cmpVal(a, b) {
+      if (Array.isArray(a) && Array.isArray(b)) { for (let i = 0; i < Math.min(a.length, b.length); i++) { const c = cmpVal(a[i], b[i]); if (c) return c; } return a.length - b.length; }
+      return a < b ? -1 : a > b ? 1 : 0;
+    }
+    function noteRd(cell, path) { if (cell && cell.key) (arrRd[cell.key] = arrRd[cell.key] || []).push(path); }
+    function noteWr(cell, path) { if (cell && cell.key) { (arrWr[cell.key] = arrWr[cell.key] || []).push(path); changed.add(cell.key); } }
 
     function step(node, note, kind, lines) {
       if (steps.length >= MAX_STEPS) throw new StepLimit('Stopped after ' + MAX_STEPS + ' steps (infinite loop? try a smaller input).');
       steps.push({ l: lines ? lines[0] : node.line, e: lines ? lines[1] : (node.end || node.line), note, kind: kind || 'stmt', frames: snapshot(), outLen: out.length, depth: frames.length });
       changed = new Set();
-      arrHl = {};
+      arrRd = {}; arrWr = {};
     }
 
     // ---------- variables
@@ -488,41 +566,93 @@
     }
     function resolve(cell) { return cell.ref || cell; }
 
-    function makeArray(dims, base, init, line) {
-      const fill = base === 'double' ? 0 : 0;
-      if (dims.length === 1) {
-        const n = dims[0] != null ? dims[0] : (init ? init.items.length : 0);
-        const a = new Array(n).fill(init ? fill : undefined);
-        if (init) {
-          if (init.k === 'str') { for (let i = 0; i < n; i++) a[i] = i < init.v.length ? init.v.charCodeAt(i) : 0; }
-          else init.items.forEach((it, i) => { if (i < n) a[i] = coerce(evalE(it).v, base); });
-        }
-        return a;
-      }
-      const rows = dims[0] != null ? dims[0] : (init ? init.items.length : 0);
-      const a = [];
-      for (let r = 0; r < rows; r++) {
-        const row = new Array(dims[1]).fill(init ? fill : undefined);
-        if (init && init.items[r]) {
-          const it = init.items[r];
-          if (it.k === 'list') it.items.forEach((x, c) => { row[c] = coerce(evalE(x).v, base); });
-        }
-        a.push(row);
-      }
-      if (init && init.items.length && init.items[0].k !== 'list') { // flat init of 2D array
-        init.items.forEach((x, i) => { const r = Math.floor(i / dims[1]); if (a[r]) a[r][i % dims[1]] = coerce(evalE(x).v, base); });
+    function makeArray(dims, base, init) {
+      // any number of dimensions; init may be nested lists or one flat list (row-major)
+      const sizes = dims.slice();
+      if (sizes[0] == null) sizes[0] = init ? (init.k === 'str' ? init.v.length + 1 : init.items.length) : 0;
+      const build = d => d === sizes.length - 1 ? new Array(sizes[d]).fill(init ? 0 : undefined) : Array.from({ length: sizes[d] }, () => build(d + 1));
+      const a = build(0);
+      if (!init) return a;
+      if (init.k === 'str') { for (let i = 0; i < a.length; i++) a[i] = i < init.v.length ? init.v.charCodeAt(i) : 0; return a; }
+      const nested = init.items.length && init.items[0].k === 'list';
+      if (nested || sizes.length === 1) {
+        const fill = (arr, list, d) => list.items.forEach((it, i) => {
+          if (i >= arr.length) return;
+          if (it.k === 'list') fill(arr[i], it, d + 1); else arr[i] = coerce(evalE(it).v, base);
+        });
+        fill(a, init, 0);
+      } else {
+        const flat = []; (function walk(x) { if (Array.isArray(x)) x.forEach((y, i) => { if (Array.isArray(y)) walk(y); else flat.push([x, i]); }); })(a);
+        init.items.forEach((it, i) => { if (flat[i]) flat[i][0][flat[i][1]] = coerce(evalE(it).v, base); });
       }
       return a;
+    }
+    function deepCoerce(v, base) { return Array.isArray(v) ? v.map(x => deepCoerce(x, base)) : (v === undefined ? 0 : coerce(v, base)); }
+    function listValue(node) { // {1, 2, {3, 4}} → nested JS arrays
+      return node.items.map(it => it.k === 'list' ? listValue(it) : (r => r.t === 'arr' ? deep(r.v) : r.t === 'pair' ? r.v.slice() : r.v)(evalE(it)));
+    }
+    function depthOf(a) { let d = 0; while (Array.isArray(a)) { d++; a = a[0]; } return d; }
+    // build the stored value for a declared C++ type from an evaluated result
+    function containerValue(type, r) {
+      if (type.kind === 'vector') return r ? deepCoerce(deep(r.v), type.base) : [];
+      if (type.kind === 'map') return r && r.v instanceof Map ? new Map(r.v) : new Map();
+      if (type.kind === 'set') return r && r.v instanceof Set ? new Set(r.v) : new Set(r && Array.isArray(r.v) ? r.v : []);
+      if (type.kind === 'pair') return r ? (Array.isArray(r.v) ? [r.v[0], r.v[1]] : r.v.slice()) : [0, 0];
+      return r ? r.v : 0;
+    }
+    function ctorValue(type, args) {
+      if (type.kind === 'vector') {
+        const n = args[0] ? evalE(args[0]).v : 0;
+        const fv = args[1] ? evalE(args[1]) : null;
+        return Array.from({ length: n }, () => fv ? (fv.t === 'arr' ? deep(fv.v) : coerce(fv.v, type.base)) : (type.elem.kind === 'vector' ? [] : 0));
+      }
+      if (type.kind === 'pair') return [evalE(args[0]).v, evalE(args[1]).v];
+      return containerValue(type, null);
+    }
+    function setupCell(cell, type, val) {
+      if (type.kind === 'vector') { cell.dims = type.dims; cell.vec = true; cell.base = type.base; cell.val = val; }
+      else if (type.kind === 'map') { cell.kind = 'map'; cell.ordered = type.ordered; cell.kb = type.key.base; cell.base = type.val.base; cell.val = val; }
+      else if (type.kind === 'set') { cell.kind = 'set'; cell.ordered = type.ordered; cell.base = type.elem.base; cell.val = val; }
+      else if (type.kind === 'pair') { cell.kind = 'pair'; cell.ab = [type.a.base, type.b.base]; cell.val = val; }
+      return cell;
+    }
+    function autoType(r) { // the declared type of `auto x = …`
+      if (r.t === 'arr') { const d = Math.max(1, depthOf(r.v)); const base = r.cell ? r.cell.base : 'int'; let t = { kind: 'vector', base, elem: { base }, dims: 1, name: 'vector<' + base + '>' }; for (let i = 1; i < d; i++) t = { kind: 'vector', base, elem: t, dims: i + 1, name: 'vector<' + t.name + '>' }; return t; }
+      if (r.t === 'map') return { kind: 'map', ordered: r.cell && r.cell.ordered, key: { base: 'int' }, val: { base: 'int' }, base: 'int', name: 'map' };
+      if (r.t === 'set') return { kind: 'set', ordered: r.cell && r.cell.ordered, elem: { base: 'int' }, base: 'int', name: 'set' };
+      if (r.t === 'pair') return { kind: 'pair', a: { base: 'int' }, b: { base: 'int' }, base: 'pair', name: 'pair' };
+      if (r.t === 'iter') return { kind: 'iter', base: 'iter', name: 'iterator' };
+      return { base: r.t === 'str' ? 'string' : (r.t === 'bool' ? 'bool' : r.t), name: r.t === 'long' ? 'long long' : r.t === 'str' ? 'string' : r.t };
     }
 
     function declare(scope, fi, type, v, ownerName) {
       const cell = { base: type.base, typeName: type.name, dims: v.dims.length, order: orderCounter++, key: fi + ':' + v.name, name: v.name, owner: ownerName };
+      if (type.base === 'auto') {
+        const r = evalE(v.init);
+        type = autoType(r);
+        cell.typeName = 'auto'; cell.base = type.base;
+        if (v.isRef && r.t === 'arr') { setupCell(cell, type, r.v); }
+        else if (type.kind === 'iter') { cell.kind = 'iter'; cell.val = r.v; }
+        else if (type.kind) setupCell(cell, type, containerValue(type, r));
+        else cell.val = r.v;
+        scope.set(v.name, cell); changed.add(cell.key); return cell;
+      }
+      if (type.kind) {
+        let val;
+        if (v.ctor) val = ctorValue(type, v.ctor);
+        else if (v.init) val = containerValue(type, evalE(v.init));
+        else val = containerValue(type, null);
+        if (v.isRef && v.init) { const r = evalE(v.init); if (r.t === 'arr') val = r.v; }
+        setupCell(cell, type, val);
+        scope.set(v.name, cell); changed.add(cell.key); return cell;
+      }
       if (v.dims.length) {
         const sizes = v.dims.map(d => d ? coerce(evalE(d).v, 'long') : null);
         let init = v.init;
         if (init && init.k === 'str') init = init; // char s[] = "abc"
         if (init && type.base === 'char' && init.k === 'str' && sizes[0] == null) sizes[0] = init.v.length + 1;
         cell.val = makeArray(sizes, type.base, init);
+        cell.idxv = [];
       } else if (v.init) {
         const r = evalE(v.init);
         cell.val = type.base === 'string' ? String(r.v) : coerce(r.v, type.base);
@@ -539,12 +669,33 @@
         const f = lookup(e.name);
         if (!f) throw CError('"' + e.name + '" is not declared', curLine);
         const cell = resolve(f.cell);
-        if (cell.dims) throw CError('cannot assign to a whole array', curLine);
+        if (cell.dims && !cell.vec) throw CError('cannot assign to a whole array', curLine);
+        if (cell.dims || cell.kind) {
+          return {
+            get: () => ({ v: cell.val, t: cell.dims ? 'arr' : cell.kind, cell }),
+            set: v => {
+              if (cell.dims) cell.val = deepCoerce(deep(v), cell.base);
+              else if (cell.kind === 'map') cell.val = new Map(v);
+              else if (cell.kind === 'set') cell.val = new Set(v);
+              else if (cell.kind === 'pair') cell.val = v.slice();
+              else cell.val = v;
+              changed.add(cell.key);
+            },
+            base: cell.base, label: e.name, container: true
+          };
+        }
         return {
           get: () => ({ v: cell.val === undefined ? 0 : cell.val, t: cell.base === 'char' ? 'char' : cell.base }),
           set: v => { cell.val = cell.base === 'string' ? v : coerce(v, cell.base); changed.add(f.fi + ':' + e.name); changed.add(cell.key); },
           base: cell.base, label: e.name
         };
+      }
+      if (e.k === 'member') { // p.first = …
+        const r = evalE(e.a);
+        if (r.t === 'pair' && (e.m === 'first' || e.m === 'second')) {
+          const i = e.m === 'first' ? 0 : 1;
+          return { get: () => ({ v: r.v[i], t: 'int' }), set: v => { r.v[i] = v; if (r.cell) changed.add(r.cell.key); }, base: 'int', label: src(e) };
+        }
       }
       if (e.k === 'idx') {
         const path = [];
@@ -554,6 +705,14 @@
           const f = lookup(x.name);
           if (!f) throw CError('"' + x.name + '" is not declared', curLine);
           const cell = resolve(f.cell);
+          if (cell.kind === 'map') { // m[key]: reading a missing key inserts it with 0, like C++
+            const k = evalE(path[0]).v;
+            return {
+              get: () => { if (!cell.val.has(k)) { cell.val.set(k, 0); noteWr(cell, k); } else noteRd(cell, k); return { v: cell.val.get(k), t: cell.base }; },
+              set: v => { cell.val.set(k, coerce(v, cell.base)); noteWr(cell, k); },
+              base: cell.base, label: x.name + '[' + showVal(k, cell.kb) + ']'
+            };
+          }
           if (cell.base === 'string' && !cell.dims) {
             const i = evalE(path[0]).v;
             return {
@@ -562,19 +721,35 @@
               base: 'char', label: x.name + '[' + i + ']'
             };
           }
+          if (!cell.dims) throw CError('"' + x.name + '" is not an array', curLine);
+          // remember which variables are used as indices of which dimension (drawn as pointers)
+          cell.idxv = cell.idxv || [];
+          path.forEach((pe, d) => { if (pe.k === 'id') (cell.idxv[d] = cell.idxv[d] || new Set()).add(pe.name); });
           const idx = path.map(pe => evalE(pe).v);
           let arr = cell.val;
           for (let d = 0; d < idx.length - 1; d++) {
-            if (idx[d] < 0 || idx[d] >= arr.length) throw CError('index ' + idx[d] + ' is out of bounds for ' + x.name + ' (size ' + arr.length + ')', curLine);
+            if (!Array.isArray(arr) || idx[d] < 0 || idx[d] >= arr.length) throw CError('index ' + idx[d] + ' is out of bounds for ' + x.name + ' (size ' + (arr ? arr.length : 0) + ')', curLine);
             arr = arr[idx[d]];
           }
           const last = idx[idx.length - 1];
           if (!Array.isArray(arr) || last < 0 || last >= arr.length) throw CError('index ' + last + ' is out of bounds for ' + x.name + ' (size ' + (arr ? arr.length : 0) + ')', curLine);
           return {
-            get: () => ({ v: arr[last] === undefined ? 0 : arr[last], t: cell.base }),
-            set: v => { arr[last] = coerce(v, cell.base); changed.add(cell.key); (arrHl[cell.key] = arrHl[cell.key] || []).push(idx); },
+            get: () => { const v = arr[last]; if (Array.isArray(v)) return { v, t: 'arr', cell, path: idx }; return { v: v === undefined ? 0 : v, t: cell.base }; },
+            set: v => { arr[last] = Array.isArray(v) ? deepCoerce(deep(v), cell.base) : coerce(v, cell.base); noteWr(cell, idx); },
             base: cell.base, label: x.name + idx.map(i => '[' + i + ']').join(''),
-            touch: () => { (arrHl[cell.key] = arrHl[cell.key] || []).push(idx); }
+            touch: () => noteRd(cell, idx)
+          };
+        }
+        else { // the array comes from an expression such as res.back()[1]
+          const b = evalE(e.a);
+          if (b.t !== 'arr') throw CError('this value cannot be indexed', curLine);
+          const arr = b.v, i = evalE(e.i).v;
+          if (i < 0 || i >= arr.length) throw CError('index ' + i + ' is out of bounds (size ' + arr.length + ')', curLine);
+          const pth = (b.path || []).concat([i]);
+          return {
+            get: () => { const v = arr[i]; return Array.isArray(v) ? { v, t: 'arr', cell: b.cell, path: pth } : { v, t: b.cell ? b.cell.base : 'int' }; },
+            set: v => { arr[i] = Array.isArray(v) ? deep(v) : coerce(v, b.cell ? b.cell.base : 'int'); noteWr(b.cell, pth); },
+            base: b.cell ? b.cell.base : 'int', label: src(e), touch: () => noteRd(b.cell, pth)
           };
         }
       }
@@ -601,11 +776,20 @@
           }
           const cell = resolve(f.cell);
           if (cell.dims) return { v: cell.val, t: 'arr', cell };
+          if (cell.kind) return { v: cell.val, t: cell.kind, cell };
           return { v: cell.val === undefined ? 0 : cell.val, t: cell.base };
         }
+        case 'list': return { v: listValue(e), t: 'arr' };
+        case 'ctor':
+          if (e.type.kind === 'cmp') return { v: e.type.desc, t: 'cmp' };
+          return { v: ctorValue(e.type, e.args), t: e.type.kind === 'vector' ? 'arr' : e.type.kind };
         case 'idx': {
-          const base = evalE(e.a);
-          if (base.t === 'string' || base.t === 'str') { const i = evalE(e.i).v; return { v: base.v.charCodeAt(i) || 0, t: 'char' }; }
+          let root = e; while (root.k === 'idx') root = root.a;
+          if (root.k !== 'id') {
+            const base = evalE(e.a);
+            if (base.t === 'string' || base.t === 'str') { const i = evalE(e.i).v; return { v: base.v.charCodeAt(i) || 0, t: 'char' }; }
+            if (base.t === 'arr') { const i = evalE(e.i).v; if (i < 0 || i >= base.v.length) throw CError('index ' + i + ' is out of bounds (size ' + base.v.length + ')', curLine); const x = base.v[i]; return Array.isArray(x) ? { v: x, t: 'arr' } : { v: x, t: 'int' }; }
+          }
           const ref = lref(e);
           if (ref.touch) ref.touch();
           return ref.get();
@@ -660,6 +844,8 @@
         case 'member': {
           const a = evalE(e.a);
           if (a.t === 'string' && (e.m === 'size' || e.m === 'length')) return { v: a.v.length, t: 'int', method: true };
+          if (a.t === 'pair' && (e.m === 'first' || e.m === 'second')) { const x = a.v[e.m === 'first' ? 0 : 1]; return Array.isArray(x) ? { v: x, t: 'arr' } : { v: x, t: 'int' }; }
+          if (a.t === 'iter' && a.v.cont instanceof Map) { if (a.v.end) throw CError('the iterator is end(): nothing to read', curLine); return e.m === 'first' ? { v: a.v.key, t: 'int' } : { v: a.v.cont.get(a.v.key), t: 'int' }; }
           throw CError('.' + e.m + ' is not supported', curLine);
         }
       }
@@ -701,6 +887,17 @@
     }
 
     function binop(op, a, b) {
+      if (a.t === 'arr' && (op === '+' || op === '-') && typeof b.v === 'number') a = { t: 'iter', v: { arr: a.v, pos: 0, cell: a.cell } }; // arr + n decays to an iterator
+      if (a.t === 'iter' || b.t === 'iter') {
+        if (a.t === 'iter' && b.t === 'iter') {
+          if (op === '-') return { v: a.v.pos - b.v.pos, t: 'int' };
+          const same = a.v.arr ? a.v.pos === b.v.pos : (a.v.end && b.v.end) || (!a.v.end && !b.v.end && a.v.key === b.v.key);
+          if (op === '==') return { v: same ? 1 : 0, t: 'int' };
+          if (op === '!=') return { v: same ? 0 : 1, t: 'int' };
+        }
+        if (a.t === 'iter' && (op === '+' || op === '-')) return { t: 'iter', v: Object.assign({}, a.v, { pos: a.v.pos + (op === '+' ? b.v : -b.v) }) };
+        throw CError('unsupported iterator operation ' + op, curLine);
+      }
       if (a.t === 'string' || a.t === 'str' || b.t === 'string' || b.t === 'str') {
         const sa = a.t === 'char' ? String.fromCharCode(a.v) : a.v, sb = b.t === 'char' ? String.fromCharCode(b.v) : b.v;
         if (op === '+') return { v: sa + sb, t: 'string' };
@@ -766,7 +963,24 @@
 
     function callE(e) {
       const name = e.f.k === 'id' ? e.f.name : (e.f.k === 'member' ? e.f.m : null);
-      if (e.f.k === 'member') return evalE(e.f);
+      if (e.f.k === 'member') return methodCall(e.f.a, e.f.m, e.args);
+      if (ast.funcs[name]) return invoke(ast.funcs[name], e.args, e); // user functions win over library names
+      if (name === 'sort' || name === 'reverse') {
+        const a = toIter(evalE(e.args[0])), b = toIter(evalE(e.args[1]));
+        if (a.arr !== b.arr) throw CError(name + ' needs two positions in the same array', curLine);
+        const arr = a.arr, before = arr.slice();
+        const part = arr.slice(a.pos, b.pos);
+        if (name === 'reverse') part.reverse();
+        else { const desc = e.args[2] ? evalE(e.args[2]).v === true : false; part.sort((x, y) => desc ? cmpVal(y, x) : cmpVal(x, y)); }
+        for (let i = 0; i < part.length; i++) arr[a.pos + i] = part[i];
+        const cell = a.cell || b.cell;
+        for (let i = a.pos; i < b.pos; i++) if (cmpVal(before[i], arr[i]) !== 0) noteWr(cell, (a.path || []).concat([i]));
+        if (cell) changed.add(cell.key);
+        return { v: 0, t: 'void' };
+      }
+      if (name === 'make_pair') { const x = evalE(e.args[0]), y = evalE(e.args[1]); return { v: [x.v, y.v], t: 'pair' }; }
+      if (name === 'accumulate') { const a = toIter(evalE(e.args[0])), b = toIter(evalE(e.args[1])); let acc = evalE(e.args[2]); let sum = acc.v; for (let i = a.pos; i < b.pos; i++) sum += a.arr[i]; return { v: coerce(sum, acc.t), t: acc.t }; }
+      if ((name === 'max' || name === 'min') && e.args.length === 1) { const l = evalE(e.args[0]).v; return { v: name === 'max' ? Math.max(...l) : Math.min(...l), t: 'int' }; }
       if (name === 'printf') {
         const fmt = evalE(e.args[0]);
         const args = e.args.slice(1).map(evalE);
@@ -789,13 +1003,61 @@
       if (name === 'puts') { const a = evalE(e.args[0]); out += a.v + '\n'; return { v: 1, t: 'int' }; }
       if (name === 'swap') {
         const r1 = lref(e.args[0]), r2 = lref(e.args[1]);
-        const a = r1.get().v, b = r2.get().v; r1.set(b); r2.set(a);
+        const a = r1.get().v, b = r2.get().v;
+        if (r1.container) { const ta = deep(a), tb = deep(b); r1.set(tb); r2.set(ta); return { v: 0, t: 'void' }; }
+        r1.set(b); r2.set(a);
         return { v: 0, t: 'void' };
       }
       if (MATH[name] && !(ast.funcs[name])) return MATH[name](e.args.map(evalE));
       const fn = ast.funcs[name];
       if (!fn) throw CError('function "' + name + '" is not defined', curLine);
       return invoke(fn, e.args, e);
+    }
+
+    function toIter(r) {
+      if (r.t === 'iter') return r.v;
+      if (r.t === 'arr') return { arr: r.v, pos: 0, cell: r.cell, path: r.path };
+      throw CError('expected an array or iterator', curLine);
+    }
+    function methodCall(objE, m, args) {
+      const o = evalE(objE);
+      const cell = o.cell;
+      if (o.t === 'string' || o.t === 'str') {
+        if (m === 'size' || m === 'length') return { v: o.v.length, t: 'int' };
+        if (m === 'empty') return { v: o.v.length ? 0 : 1, t: 'bool' };
+      }
+      if (o.t === 'arr') {
+        const arr = o.v, path = o.path || [];
+        const elemOf = r => r.t === 'arr' ? deep(r.v) : r.t === 'pair' ? r.v.slice() : coerce(r.v, cell ? cell.base : 'int');
+        switch (m) {
+          case 'size': case 'length': return { v: arr.length, t: 'int' };
+          case 'empty': return { v: arr.length ? 0 : 1, t: 'bool' };
+          case 'push_back': case 'emplace_back': { arr.push(elemOf(evalE(args[0]))); noteWr(cell, path.concat([arr.length - 1])); return { v: 0, t: 'void' }; }
+          case 'pop_back': { if (!arr.length) throw CError('pop_back() on an empty vector', curLine); arr.pop(); if (cell) changed.add(cell.key); return { v: 0, t: 'void' }; }
+          case 'back': case 'front': { if (!arr.length) throw CError(m + '() on an empty vector', curLine); const i = m === 'back' ? arr.length - 1 : 0; noteRd(cell, path.concat([i])); const x = arr[i]; return Array.isArray(x) ? { v: x, t: 'arr', cell, path: path.concat([i]) } : { v: x, t: cell ? cell.base : 'int' }; }
+          case 'clear': arr.length = 0; if (cell) changed.add(cell.key); return { v: 0, t: 'void' };
+          case 'begin': return { v: { arr, pos: 0, cell, path }, t: 'iter' };
+          case 'end': return { v: { arr, pos: arr.length, cell, path }, t: 'iter' };
+          case 'resize': { const n = evalE(args[0]).v; const fv = args[1] ? elemOf(evalE(args[1])) : 0; while (arr.length > n) arr.pop(); while (arr.length < n) arr.push(Array.isArray(fv) ? deep(fv) : fv); if (cell) changed.add(cell.key); return { v: 0, t: 'void' }; }
+          case 'insert': { const it = toIter(evalE(args[0])); arr.splice(it.pos, 0, elemOf(evalE(args[1]))); noteWr(cell, path.concat([it.pos])); return { v: 0, t: 'void' }; }
+          case 'erase': { const it = toIter(evalE(args[0])); arr.splice(it.pos, 1); if (cell) changed.add(cell.key); return { v: 0, t: 'void' }; }
+        }
+      }
+      if (o.t === 'map' || o.t === 'set') {
+        const c = o.v;
+        const key = () => evalE(args[0]).v;
+        switch (m) {
+          case 'size': return { v: c.size, t: 'int' };
+          case 'empty': return { v: c.size ? 0 : 1, t: 'bool' };
+          case 'count': { const k = key(); noteRd(cell, k); return { v: c.has(k) ? 1 : 0, t: 'int' }; }
+          case 'find': { const k = key(); noteRd(cell, k); return { v: c.has(k) ? { cont: c, key: k } : { cont: c, end: true }, t: 'iter' }; }
+          case 'end': return { v: { cont: c, end: true }, t: 'iter' };
+          case 'insert': { const r = evalE(args[0]); if (o.t === 'set') { c.add(r.v); noteWr(cell, r.v); } else if (!c.has(r.v[0])) { c.set(r.v[0], r.v[1]); noteWr(cell, r.v[0]); } return { v: 0, t: 'void' }; }
+          case 'erase': { const k = key(); c.delete(k); if (cell) changed.add(cell.key); return { v: 0, t: 'void' }; }
+          case 'clear': c.clear(); if (cell) changed.add(cell.key); return { v: 0, t: 'void' };
+        }
+      }
+      throw CError('.' + m + '() is not supported by the visualiser', curLine);
     }
 
     function invoke(fn, argExprs, callNode) {
@@ -815,6 +1077,11 @@
           const target = resolve(f.cell);
           scope.set(pdef.name, { ref: target, order: orderCounter++, key: fi + ':' + pdef.name, refKey: target.key });
           shown.push(pdef.name + ' → ' + x.name);
+        } else if (pdef.type.kind) {
+          const v = evalE(ae);
+          const cell = setupCell({ typeName: pdef.type.name, order: orderCounter++, key: fi + ':' + pdef.name, name: pdef.name, owner: fn.name }, pdef.type, containerValue(pdef.type, v));
+          scope.set(pdef.name, cell);
+          shown.push(pdef.name + ' = a copy');
         } else {
           const v = evalE(ae);
           const cell = { base: pdef.type.base, typeName: pdef.type.name, dims: 0, order: orderCounter++, key: fi + ':' + pdef.name, name: pdef.name, owner: fn.name, val: pdef.type.base === 'string' ? String(v.v) : coerce(v.v, pdef.type.base) };
@@ -831,7 +1098,11 @@
       catch (x) { if (x instanceof Return) ret = x.v; else throw x; }
       frames.pop();
       curLine = callerLine;
-      const rv = fn.type.base === 'void' ? { v: 0, t: 'void' } : { v: fn.type.base === 'string' ? ret.v : coerce(ret.v, fn.type.base), t: fn.type.base };
+      const rv = fn.type.base === 'void' ? { v: 0, t: 'void' }
+        : fn.type.kind === 'vector' ? { v: deepCoerce(deep(ret.v), fn.type.base), t: 'arr' }
+        : fn.type.kind === 'pair' ? { v: Array.isArray(ret.v) ? ret.v.slice() : [0, 0], t: 'pair' }
+        : fn.type.kind ? { v: ret.v, t: fn.type.kind }
+        : { v: fn.type.base === 'string' ? ret.v : coerce(ret.v, fn.type.base), t: fn.type.base };
       pendingCallNote = (pendingCallNote ? pendingCallNote + ' ' : '') + 'Back from ' + code(fn.name + '()') + (fn.type.base === 'void' ? '' : ' with ' + code(showVal(rv.v, rv.t))) + '.';
       return rv;
     }
@@ -928,6 +1199,15 @@
         if (n === 'scanf') return 'Read input into ' + x.args.slice(1).map(a => code(src(a.k === 'addr' ? a.a : a) + ' = ' + after(a.k === 'addr' ? a.a : a))).join(', ') + '.';
         return 'Call ' + code(src(x)) + '.' + pr;
       }
+      if (x.k === 'call' && x.f.k === 'member') {
+        const m = x.f.m, obj = src(x.f.a);
+        if (['push_back', 'emplace_back', 'pop_back', 'insert', 'erase', 'clear', 'resize'].includes(m)) return code(src(x)) + ' → ' + code(obj) + ' is now ' + code(contString(x.f.a)) + '.';
+        return 'Call ' + code(src(x)) + '.' + pr;
+      }
+      if (x.k === 'call' && x.f.k === 'id' && (x.f.name === 'sort' || x.f.name === 'reverse')) {
+        let a = x.args[0]; while (a.k === 'call' && a.f.k === 'member') a = a.f.a; while (a.k === 'bin') a = a.a;
+        return code(src(x)) + ' → ' + code(src(a)) + ' is now ' + code(contString(a)) + '.';
+      }
       if (x.k === 'bin' && (x.op === '<<' || x.op === '>>')) {
         let root = x; while (root.k === 'bin') root = root.a;
         if (root.k === 'id' && root.name === 'cout') return printed ? 'Print ' + showOut(printed) + '.' : 'cout prints nothing.';
@@ -943,6 +1223,14 @@
       return 'Evaluate ' + code(src(x)) + '.' + pr;
     }
     function after(e) { return sub(e); }
+    function contString(e) { // value of a container expression, for notes
+      try { const r = evalPure(e); return r == null ? src(e) : showVal(r, 'int'); } catch (_) { return src(e); }
+    }
+    function evalPure(e) {
+      if (e.k === 'id') { const f = lookup(e.name); if (!f) return null; const c = resolve(f.cell); return c.val; }
+      if (e.k === 'idx') { const a = evalPure(e.a); const i = pureEval(e.i); return Array.isArray(a) && i != null ? a[i] : null; }
+      return null;
+    }
     function exprBefore(e) {
       let x = e; while (x.k === 'paren') x = x.a;
       return { v: x.k === 'assign' ? sub(x.value) : '' };
@@ -968,7 +1256,8 @@
           const outBefore = out.length;
           for (const v of s.vars) {
             const cell = declare(scope, frames.length - 1, s.type, v, f.fn ? f.fn.name : 'main');
-            if (cell.dims) parts.push(code(s.type.name + ' ' + v.name + v.dims.map((d, i) => '[' + (Array.isArray(cell.val) && i === 0 ? cell.val.length : (Array.isArray(cell.val[0]) ? cell.val[0].length : '')) + ']').join('')) + (v.init ? ' filled from the initialiser' : ' (contents are garbage until you assign them)'));
+            if (cell.vec || cell.kind || s.type.base === 'auto') parts.push(code((cell.typeName === 'auto' ? 'auto' : s.type.name) + ' ' + v.name) + ' = ' + code(cell.kind === 'iter' ? (cell.val.end ? 'end()' : 'iterator') : showVal(cell.val, cell.kind === 'pair' ? 'int' : cell.base)) + (cell.vec ? ' (size ' + cell.val.length + ')' : ''));
+            else if (cell.dims) parts.push(code(s.type.name + ' ' + v.name + v.dims.map((d, i) => '[' + (Array.isArray(cell.val) && i === 0 ? cell.val.length : (Array.isArray(cell.val[0]) ? cell.val[0].length : '')) + ']').join('')) + (v.init ? ' filled from the initialiser' : ' (contents are garbage until you assign them)'));
             else if (v.init) parts.push(code(s.type.name + ' ' + v.name) + ' = ' + (v.init.k === 'num' || hasCall(v.init) ? '' : code(src(v.init)) + ' → ') + code(showVal(cell.val, cell.base)));
             else parts.push(code(s.type.name + ' ' + v.name) + (cell.val === undefined ? ' (no value yet — holds garbage)' : ''));
           }
@@ -1014,6 +1303,37 @@
             step({ line: s.condLine }, 'do-while check ' + before + ' → <b class="' + (r ? 'yes">true' : 'no">false') + '</b>' + (r ? ' → go back to the top of the body.' : ' → the loop ends.'), r ? 'true' : 'false', [s.condLine, s.end]);
             if (!r) break;
           }
+          return;
+        }
+        case 'rfor': {
+          const f = curFrame();
+          const c = evalE(s.coll);
+          let items;
+          if (c.t === 'arr') items = c.v.map((x, i) => ({ x, i }));
+          else if (c.t === 'map') { items = [...c.v].map(([k, x]) => ({ x: [k, x] })); if (c.cell && c.cell.ordered) items.sort((a, b) => cmpVal(a.x[0], b.x[0])); }
+          else if (c.t === 'set') { items = [...c.v].map(x => ({ x })); if (c.cell && c.cell.ordered) items.sort((a, b) => cmpVal(a.x, b.x)); }
+          else if (c.t === 'string') items = [...c.v].map((ch, i) => ({ x: ch.charCodeAt(0), i }));
+          else throw CError('cannot loop over this value', s.line);
+          const what = src(s.coll);
+          for (let k = 0; k < items.length; k++) {
+            const it = items[k];
+            curLine = s.line;
+            f.scopes.push(new Map());
+            try {
+              const scope = f.scopes[f.scopes.length - 1];
+              const cell = { typeName: s.type.name, base: s.type.base, dims: 0, order: orderCounter++, key: (frames.length - 1) + ':' + s.name, name: s.name, owner: 'main' };
+              if (Array.isArray(it.x) && c.t !== 'map') { cell.dims = depthOf(it.x) || 1; cell.vec = true; cell.base = c.cell ? c.cell.base : 'int'; cell.val = s.byRef ? it.x : deep(it.x); cell.typeName = s.type.kind ? s.type.name : 'auto'; }
+              else if (c.t === 'map') { cell.kind = 'pair'; cell.ab = [c.cell ? c.cell.kb : 'int', c.cell ? c.cell.base : 'int']; cell.val = it.x.slice(); }
+              else { const b = s.type.base === 'auto' ? (c.cell ? c.cell.base : 'int') : s.type.base; cell.base = b; cell.val = coerce(it.x, b); if (s.type.base === 'auto') cell.typeName = b === 'long' ? 'long long' : b; }
+              scope.set(s.name, cell); changed.add(cell.key);
+              if (c.t === 'arr' && c.cell) noteRd(c.cell, (c.path || []).concat([it.i]));
+              if ((c.t === 'map' || c.t === 'set') && c.cell) noteRd(c.cell, c.t === 'map' ? it.x[0] : it.x);
+              step(s, 'Next element' + (it.i !== undefined ? ' (index ' + it.i + ')' : '') + ' of ' + code(what) + ': ' + code(s.name + ' = ' + (cell.kind === 'pair' ? '(' + it.x[0] + ', ' + it.x[1] + ')' : showVal(cell.val, cell.base))) + '.', 'update', [s.line, s.end]);
+              try { exec(s.body); } catch (x) { if (x instanceof Break) { f.scopes.pop(); f.scopes.push(new Map()); k = items.length; continue; } if (!(x instanceof Continue)) throw x; }
+            } finally { f.scopes.pop(); }
+          }
+          curLine = s.line;
+          step(s, 'No elements left in ' + code(what) + ' → the loop ends.', 'false', [s.line, s.end]);
           return;
         }
         case 'for': {

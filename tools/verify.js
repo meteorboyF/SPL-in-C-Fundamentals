@@ -8,7 +8,9 @@ const CTrace = require(path.join(root, 'assets/js/cinterp.js'));
 for (const f of fs.readdirSync(path.join(root, 'assets/data'))) require(path.join(root, 'assets/data', f));
 const show = process.argv.includes('--show');
 const filter = process.argv.slice(2).find(a => !a.startsWith('--'));
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cnv-'));
+const tmp = path.join(os.tmpdir(), 'cnv-cache');
+fs.mkdirSync(tmp, { recursive: true });
+const crypto = require('crypto');
 let bad = 0, n = 0, runs = 0;
 for (const d of CN.items) {
   if (filter && !d.id.includes(filter)) continue;
@@ -16,10 +18,11 @@ for (const d of CN.items) {
   const lines = d.code.replace(/^\n/, '').replace(/\s+$/, '').split('\n');
   const code = lines.map(l => { const i = l.indexOf('//>'); return i >= 0 ? l.slice(0, i).replace(/\s+$/, '') : l; }).join('\n');
   const cpp = /cout|cin|iostream|bits\/stdc/.test(code);
-  const src = path.join(tmp, d.id + (cpp ? '.cpp' : '.c')), exe = path.join(tmp, d.id);
+  const hash = crypto.createHash('sha1').update(code).digest('hex').slice(0, 12);
+  const src = path.join(tmp, hash + (cpp ? '.cpp' : '.c')), exe = path.join(tmp, hash);
   fs.writeFileSync(src, code);
   try {
-    execFileSync(cpp ? 'g++' : 'gcc', ['-Wall', '-Wno-unused-variable', src, '-o', exe, '-lm'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    if (!fs.existsSync(exe)) execFileSync(cpp ? 'g++' : 'gcc', ['-Wall', '-Wno-unused-variable', src, '-o', exe, '-lm'], { stdio: ['ignore', 'ignore', 'pipe'] });
   } catch (e) { bad++; console.log('✗ COMPILE', d.id, String(e.stderr || e.message).slice(0, 400)); continue; }
   for (const input of [d.input || ''].concat(d.tests || [])) {
     runs++;

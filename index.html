@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><text x='16' y='21' font-size='12' text-anchor='middle' fill='white' font-family='monospace' font-weight='700'>C++</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=8">
+<link rel="stylesheet" href="assets/css/style.css?v=10">
 </head>
 <body>
 <div class="wrap">
@@ -24,6 +24,7 @@
         <a class="btn" href="loops.html">Loops</a>
         <a class="btn" href="sequences.html">Sequences</a>
         <a class="btn" href="patterns.html">Patterns</a>
+        <a class="btn" href="arrays.html">Arrays</a>
       </p>
     </section>
 
@@ -38,7 +39,7 @@
       <div class="card soon"><span class="ic">5</span><h3>Recursion</h3><p>Recursion tree, stack frames, parameterised vs functional, multiple calls.</p><span class="pill">soon</span></div>
       <div class="card soon"><span class="ic">6</span><h3>Hashing</h3><p>Frequency counting with arrays and maps.</p><span class="pill">soon</span></div>
       <div class="card soon"><span class="ic">7</span><h3>Sorting</h3><p>Selection, bubble, insertion, merge, quick sort, each one animated.</p><span class="pill">soon</span></div>
-      <div class="card soon"><span class="ic">8</span><h3>Arrays</h3><p>Easy → medium → hard: two pointers, Kadane, prefix sums, matrices.</p><span class="pill">soon</span></div>
+      <a class="card" href="arrays.html"><span class="ic">6</span><h3>Arrays</h3><p>59 problems: easy → medium → hard, 2D matrices, 3D and K arrays. Pointers, crosshairs, slices, a memory layout view, maps and sets.</p><span class="pill easy">ready</span></a>
       <div class="card soon"><span class="ic">9</span><h3>Binary search</h3><p>On arrays, on answers, on 2D.</p><span class="pill">soon</span></div>
       <div class="card soon"><span class="ic">10</span><h3>Strings, linked list, stack/queue …</h3><p>The rest of the A2Z order.</p><span class="pill">soon</span></div>
     </div>
@@ -59,18 +60,22 @@
       <tr><td>Output</td><td>the console. What this step printed is highlighted, and your typed input is green</td></tr>
       <tr><td>Pattern grid</td><td>(patterns) which cell each <code>printf</code> filled, with spaces shown as dots</td></tr>
       <tr><td>Row analysis</td><td>(patterns) spaces and characters counted for every line, so you can find the formula</td></tr>
+      <tr><td>Arrays</td><td>every array, vector, map and set drawn large: index pointers, read/write cells, 2D crosshair, 3D slices, bar chart and memory layout</td></tr>
       <tr><td>Trace table</td><td>one row per change: the table you would draw on paper</td></tr>
     </table>
     <p class="muted small">The visualiser runs a small C interpreter in your browser. Every program on this site is checked to print exactly what <code>gcc</code> prints.</p>
   </main>
 </div>
-<script src="assets/js/cinterp.js?v=8"></script>
-<script src="assets/js/site.js?v=8"></script>
-<script src="assets/data/basics.js?v=8"></script>
-<script src="assets/data/conditionals.js?v=8"></script>
-<script src="assets/data/loops.js?v=8"></script>
-<script src="assets/data/sequences.js?v=8"></script>
-<script src="assets/data/patterns.js?v=8"></script>
+<script src="assets/js/cinterp.js?v=10"></script>
+<script src="assets/js/site.js?v=10"></script>
+<script src="assets/data/basics.js?v=10"></script>
+<script src="assets/data/conditionals.js?v=10"></script>
+<script src="assets/data/loops.js?v=10"></script>
+<script src="assets/data/sequences.js?v=10"></script>
+<script src="assets/data/patterns.js?v=10"></script>
+<script src="assets/data/arrays-easy.js?v=10"></script>
+<script src="assets/data/arrays-medium.js?v=10"></script>
+<script src="assets/data/arrays-matrix.js?v=10"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var all = CN.items.filter(function (d) { return !d.example; });

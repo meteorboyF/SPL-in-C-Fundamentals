@@ -13,13 +13,14 @@ trace table, and your own input).
 | `conditionals.html` | if / else, ladders, nested, logical operators, ternary, switch (23 problems, Decisions view) |
 | `loops.html` | for / while / do-while, break/continue, nested loops + 36 problems (digits, divisors, primes, GCD, bases, LeetCode practice) |
 | `sequences.html` | sums, AP/GP, alternating & fractional series, recurrences, run-until sequences (25 problems) |
+| `arrays.html` | 1D / 2D / 3D / K-dimensional arrays and vectors + 59 problems (easy, medium, hard, matrices, K arrays) |
 | `patterns.html` | 3 methods and 52 patterns in 10 categories, from squares to the spiral matrix |
 
 The original pattern programs (`Patterns/*.c`) live on the [`legacy`](../../tree/legacy) branch.
 
 ## How it works
 
-- `assets/js/cinterp.js` is a small C/C++ interpreter that records a step for every line it runs.
+- `assets/js/cinterp.js` is a small C/C++ interpreter that records a step for every line it runs. It supports C arrays of any dimension and the C++ subset LeetCode uses: `vector`, `map`/`unordered_map`, `set`/`unordered_set`, `pair`, range-for, `sort`, `reverse`, iterators, `cin`/`cout`.
 - `assets/js/viz.js` draws the visualiser from those steps; `assets/js/site.js` renders pages and problem cards.
 - Problems live in `assets/data/*.js`. Each one is a `CN.add({...})` call; the code is written with
   `//>` notes at the end of a line, which become that line's explanation (`{x}` renders as code).

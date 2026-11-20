@@ -21,7 +21,7 @@
     { href: 'patterns.html', label: '3 · Patterns' },
     { href: '#', label: '4 · Maths', soon: true },
     { href: '#', label: '5 · Recursion', soon: true },
-    { href: '#', label: '6 · Arrays', soon: true },
+    { href: 'arrays.html', label: '6 · Arrays' },
   ];
 
   const esc = CN.esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -90,8 +90,64 @@
     if (s === '\\n') return 'End the current line.';
     return 'Print {"' + s + '"}' + (m[2] ? ', with each {%} placeholder replaced by {' + m[2].slice(1).trim() + '}' : '') + '.';
   }
+  function splitTop(s, sep) { // split on sep outside quotes / brackets
+    const out = []; let depth = 0, q = null, cur = '';
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (q) { cur += c; if (c === '\\') { cur += s[++i]; } else if (c === q) q = null; continue; }
+      if (c === '"' || c === "'") { q = c; cur += c; continue; }
+      if ('([{'.includes(c)) depth++;
+      if (')]}'.includes(c)) depth--;
+      if (!depth && s.startsWith(sep, i)) { out.push(cur); cur = ''; i += sep.length - 1; continue; }
+      cur += c;
+    }
+    out.push(cur);
+    return out.map(x => x.trim()).filter(Boolean);
+  }
+  function cppExplain(t) {
+    let m;
+    if ((m = /^cin\s*>>(.*);$/.exec(t))) return 'Read ' + splitTop(m[1], '>>').map(x => '{' + x + '}').join(', ') + ' from the input.';
+    if ((m = /^cout\s*<<(.*);$/.exec(t))) {
+      const parts = splitTop(m[1], '<<');
+      const shown = parts.filter(x => x !== 'endl');
+      return 'Print ' + (shown.length ? shown.map(x => '{' + x + '}').join(', ') : 'nothing') + (parts.includes('endl') ? ', then end the line ({endl})' : '') + '.';
+    }
+    if ((m = /^for\s*\((?:const\s+)?([\w<>:,\s]+?)\s*(&?)\s*(\w+)\s*:\s*(.+?)\)\s*(.*)$/.exec(t))) {
+      let body = m[5].replace(/^\{\s*/, '').replace(/\s*\}?$/, '');
+      return 'Range-for: {' + m[3] + '} takes each element of {' + m[4] + '} in turn' + (m[2] ? ' (by reference: no copy is made)' : '') + '.' + (body && body !== '{' ? ' Body: {' + body + '}.' : '');
+    }
+    if ((m = /^(?:const\s+)?((?:vector|map|unordered_map|set|unordered_set|pair)<.+>)\s+(\w+)(.*);$/.exec(t))) {
+      const type = m[1], name = m[2], rest = m[3].trim();
+      const kind = type.startsWith('vector<vector') ? '2D vector' : type.startsWith('vector') ? 'vector' : type.startsWith('map') ? 'ordered map (keys kept sorted)' : type.startsWith('unordered_map') ? 'hash map' : type.startsWith('set') ? 'ordered set' : type.startsWith('unordered_set') ? 'hash set' : 'pair';
+      if (!rest) return 'Create an empty ' + kind + ' {' + name + '}.';
+      if (rest.startsWith(',')) return 'Create the ' + kind + 's {' + name + '}' + ', ' + rest.slice(1).trim() + '.';
+      if ((m = /^\((.+)\)$/.exec(rest))) {
+        const args = splitTop(m[1], ',');
+        if (args.length === 1) return 'Create the ' + kind + ' {' + name + '} with {' + args[0] + '} elements (0 by default).';
+        if (/^vector</.test(args[1])) return 'Create {' + name + '}: {' + args[0] + '} rows, each {' + args[1] + '}, i.e. a grid.';
+        return 'Create the ' + kind + ' {' + name + '} with {' + args[0] + '} copies of {' + args[1] + '}.';
+      }
+      if ((m = /^=\s*(\w+)\((.*)\)$/.exec(rest))) return 'Call {' + m[1] + '(' + m[2] + ')} and keep the ' + kind + ' it returns in {' + name + '}.';
+      if (rest.startsWith('=')) return 'Create {' + name + '} = {' + rest.slice(1).trim() + '}.';
+    }
+    if ((m = /^([\w\[\]\.\(\)]+)\.(push_back|emplace_back)\((.*)\);$/.exec(t))) return 'Append {' + m[3] + '} to the end of {' + m[1] + '}.';
+    if ((m = /^([\w\[\]\.]+)\.pop_back\(\);$/.exec(t))) return 'Remove the last element of {' + m[1] + '}.';
+    if ((m = /^sort\((.*)\);$/.exec(t))) return 'Sort the range {' + m[1] + '} in ' + (/greater/.test(m[1]) ? 'decreasing order ({greater} reverses the comparison)' : 'increasing order') + '. O(n log n).';
+    if ((m = /^reverse\((.*)\);$/.exec(t))) return 'Reverse the elements in the range {' + m[1] + '}.';
+    if ((m = /^swap\((.*)\);$/.exec(t))) return 'Exchange the values of {' + splitTop(m[1], ',').join('} and {') + '}.';
+    if ((m = /^while\s*\((.*?)\)\s*(.+;)$/.exec(t))) return 'Repeat {' + m[2] + '} while {' + m[1] + '} is true.';
+    if ((m = /^([\w\[\]\.\(\)\s+\-*\/]+?)\s*(\+\+|--);$/.exec(t))) return (m[2] === '++' ? 'Add 1 to {' : 'Subtract 1 from {') + m[1] + '}.';
+    if ((m = /^(?:int|long long|double|char|bool)\s+(.+,.+);$/.exec(t))) return 'Create {' + m[1] + '}.';
+    if ((m = /^(\w[\w\s<>,:&]*?)\s+(\w+)\((.*)\)\s*\{$/.exec(t)) && !/^(if|for|while|switch)$/.test(m[2])) return 'Define the function {' + m[2] + '}: it takes {' + (m[3] || 'nothing') + '} and returns {' + m[1] + '}.';
+    if ((m = /^else\s*\{(.*)\}$/.exec(t))) return 'Otherwise: {' + m[1].trim() + '}.';
+    if ((m = /^(?:else\s+)?if\s*\((.*)\)\s*\{(.*)\}$/.exec(t))) return (t.startsWith('else') ? 'Otherwise, if ' : 'If ') + '{' + m[1] + '} is true: {' + m[2].trim() + '}.';
+    if ((m = /^(?:int|char|double|long long|bool)\s+(\w+)\[(.+)\];$/.exec(t))) return 'Create the array {' + m[1] + '} with {' + m[2] + '} slots (their values are garbage until filled).';
+    return '';
+  }
   function autoExplain(t) {
     let m;
+    const cx = cppExplain(t);
+    if (cx) return cx;
     const tail = s => { const p = /\)\s*printf\((.*)\);\s*$/.exec(s); return p ? ' Body: ' + printWhat(p[1]).replace(/\.$/, '') + ' each time.' : ''; };
     if ((m = /^for\s*\((.*?);(.*?);(.*?)\)/.exec(t))) {
       const init = m[1].trim(), cond = m[2].trim(), upd = m[3].trim();
